@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EternalShine by Samy — Sales & Profit</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  .serif { font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif; letter-spacing: .2px; }
+  input::placeholder, select { color: #B4A9AF; }
+  .fld { width:100%; background:transparent; outline:none; font-size:13px; border:1px solid #EDE4DE; border-radius:8px; padding:7px 9px; color:#2B2430; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+addEventListener("error", function (e) {
+  var r = document.getElementById("root");
+  if (r && !r.firstChild) {
+    var msg = (e && (e.message || (e.error && e.error.message))) || "A script failed to load.";
+    r.innerHTML = '<div style="font-family:ui-sans-serif,system-ui;padding:24px;max-width:640px;margin:40px auto;color:#2B2430"><div style="font-weight:600;color:#9B2C2C;margin-bottom:8px">The dashboard could not start.</div><div style="font-size:14px;line-height:1.5">' + msg + '</div><div style="font-size:13px;color:#8A7F86;margin-top:12px">If this mentions unpkg or cdnjs, it is an internet / first-load issue — connect and refresh. Otherwise send this text to Claude.</div></div>';
+  }
+}, true);
+</script>
+
+<script>
+const {
+  useState,
+  useEffect,
+  useMemo
+} = React;
+const C = {
+  ink: "#2B2430",
+  paper: "#FBF7F4",
+  card: "#FFFFFF",
+  line: "#EDE4DE",
+  sub: "#8A7F86",
+  gold: "#B76E79",
+  in: "#2E7D6B",
+  out: "#C06B4F",
+  danger: "#9B2C2C",
+  blush: "#F5E9EA"
+};
+const I = {
+  "gem": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M6 3h12l4 6-10 13L2 9Z"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M2 9h20"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 22 8 9l2-6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 22l4-13-2-6"
+  })),
+  "plus": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "5",
+    x2: "12",
+    y2: "19"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "5",
+    y1: "12",
+    x2: "19",
+    y2: "12"
+  })),
+  "trash": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "3 6 5 6 21 6"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "10",
+    y1: "11",
+    x2: "10",
+    y2: "17"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "14",
+    y1: "11",
+    x2: "14",
+    y2: "17"
+  })),
+  "upload": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "17 8 12 3 7 8"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "3",
+    x2: "12",
+    y2: "15"
+  })),
+  "download": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "7 10 12 15 17 10"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "15",
+    x2: "12",
+    y2: "3"
+  })),
+  "trending-up": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "3 17 9 11 13 15 21 7"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "15 7 21 7 21 13"
+  })),
+  "trending-down": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("polyline", {
+    points: "3 7 9 13 13 9 21 17"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "15 17 21 17 21 11"
+  })),
+  "wallet": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M21 12V7H5a2 2 0 0 1 0-4h14v4"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M3 5v14a2 2 0 0 0 2 2h16v-5"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M18 12a2 2 0 0 0 0 4h4v-4Z"
+  })),
+  "package": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("path", {
+    d: "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: "3.3 7 12 12 20.7 7"
+  }), /*#__PURE__*/React.createElement("line", {
+    x1: "12",
+    y1: "22",
+    x2: "12",
+    y2: "12"
+  })),
+  "settings": /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("circle", {
+    cx: "12",
+    cy: "12",
+    r: "3"
+  }), /*#__PURE__*/React.createElement("path", {
+    d: "M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"
+  }))
+};
+function Icon({
+  name,
+  size = 16,
+  color = "currentColor",
+  className,
+  style
+}) {
+  return /*#__PURE__*/React.createElement("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: color,
+    strokeWidth: "2",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    className: className,
+    style: style
+  }, I[name]);
+}
+const KEY = "samy-sparkle-dashboard-v1";
+const CHANNELS = ["Facebook Marketplace", "Etsy", "Flea market", "Fair", "Instagram/TikTok", "Other"];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const num = v => {
+  const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, ""));
+  return isFinite(n) ? n : 0;
+};
+const money = (n, d = 2) => "$" + new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: d,
+  maximumFractionDigits: d
+}).format(isFinite(n) ? n : 0);
+const short = n => {
+  const a = Math.abs(n);
+  if (a >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M";
+  if (a >= 1e3) return "$" + (n / 1e3).toFixed(1) + "k";
+  return "$" + Math.round(n);
+};
+const today = () => new Date().toISOString().slice(0, 10);
+const monthLabel = m => {
+  if (!m) return "—";
+  const [y, mo] = String(m).split("-");
+  const d = new Date(Number(y), Number(mo) - 1, 1);
+  return isNaN(d) ? m : d.toLocaleString("en-US", {
+    month: "short",
+    year: "numeric"
+  });
+};
+const normDate = v => {
+  if (v === "" || v == null) return "";
+  if (typeof v === "number") {
+    const dt = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const dt = new Date(s);
+  return isNaN(dt) ? s : dt.toISOString().slice(0, 10);
+};
+const pick = (row, keys) => {
+  const low = {};
+  Object.keys(row).forEach(k => low[k.toLowerCase().replace(/[^a-z]/g, "")] = row[k]);
+  for (const k of keys) if (low[k] !== undefined && low[k] !== "") return low[k];
+  return "";
+};
+
+/* =================================================================== */
+function App() {
+  const [tab, setTab] = useState("overview");
+  const [purchases, setPurchases] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+  const [serverMode, setServerMode] = useState(false);
+  const [status, setStatus] = useState("…");
+  const totalQty = useMemo(() => purchases.reduce((s, p) => s + num(p.qty), 0), [purchases]);
+  const totalCost = useMemo(() => purchases.reduce((s, p) => s + num(p.price), 0), [purchases]);
+  const avgCost = totalQty ? totalCost / totalQty : 0;
+  const applyData = d => {
+    const ps = (d.purchases || []).map(p => ({
+      id: p.id || uid(),
+      date: p.date || "",
+      item: p.item ?? p.source ?? "",
+      qty: p.qty ?? p.units ?? "",
+      price: p.price ?? p.cost ?? ""
+    }));
+    setPurchases(ps);
+    const tq = ps.reduce((x, p) => x + num(p.qty), 0);
+    const tc = ps.reduce((x, p) => x + num(p.price), 0);
+    const avg = tq ? tc / tq : 0;
+    setEvents((d.events || []).map(e => ({
+      ...e,
+      cost: e.cost !== undefined && e.cost !== "" ? e.cost : avg ? String(Math.round(avg * 100) / 100) : ""
+    })));
+  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/data", {
+          cache: "no-store"
+        });
+        if (r.ok) {
+          applyData(await r.json());
+          setServerMode(true);
+          setStatus("Saved to file");
+          setLoaded(true);
+          return;
+        }
+      } catch (e) {}
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) applyData(JSON.parse(raw));
+      } catch (e) {}
+      setStatus("Saved in this browser");
+      setLoaded(true);
+    })();
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    const payload = JSON.stringify({
+      purchases,
+      events
+    });
+    const t = setTimeout(async () => {
+      try {
+        localStorage.setItem(KEY, payload);
+      } catch (e) {}
+      if (serverMode) {
+        try {
+          setStatus("Saving…");
+          const r = await fetch("/api/data", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: payload
+          });
+          setStatus(r.ok ? "Saved to file" : "Save failed — browser copy kept");
+        } catch (e) {
+          setStatus("Save failed — browser copy kept");
+        }
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [purchases, events, loaded, serverMode]);
+  const reload = async () => {
+    if (serverMode) {
+      try {
+        const r = await fetch("/api/data", {
+          cache: "no-store"
+        });
+        if (r.ok) {
+          applyData(await r.json());
+          setStatus("Reloaded from file");
+          return;
+        }
+      } catch (e) {}
+    }
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        applyData(JSON.parse(raw));
+        setStatus("Reloaded");
+      }
+    } catch (e) {}
+  };
+  const addEvent = () => setEvents(a => [{
+    id: uid(),
+    date: today(),
+    name: "",
+    channel: "Facebook Marketplace",
+    units: "",
+    revenue: "",
+    fees: "",
+    cost: avgCost ? String(Math.round(avgCost * 100) / 100) : ""
+  }, ...a]);
+  const updateEvent = (id, f, v) => setEvents(a => a.map(x => x.id === id ? {
+    ...x,
+    [f]: v
+  } : x));
+  const removeEvent = id => setEvents(a => a.filter(x => x.id !== id));
+  const addPurchase = () => setPurchases(a => [{
+    id: uid(),
+    date: today(),
+    item: "",
+    qty: "",
+    price: ""
+  }, ...a]);
+  const updatePurchase = (id, f, v) => setPurchases(a => a.map(x => x.id === id ? {
+    ...x,
+    [f]: v
+  } : x));
+  const removePurchase = id => setPurchases(a => a.filter(x => x.id !== id));
+  const readSheet = (file, cb) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {
+          type: "array"
+        });
+        cb(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {
+          defval: ""
+        }));
+      } catch (err) {
+        alert("Could not read that file. Use a CSV or Excel file in the template format.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  const uploadEvents = file => readSheet(file, rows => {
+    const mapped = rows.map(r => ({
+      id: uid(),
+      date: normDate(pick(r, ["date", "saledate", "eventdate"])),
+      name: String(pick(r, ["name", "event", "eventname", "market", "marketname", "description"]) || ""),
+      channel: String(pick(r, ["channel", "platform", "type", "where"]) || "Other"),
+      units: num(pick(r, ["units", "qty", "quantity", "ringssold", "sold", "count", "rings"])),
+      revenue: num(pick(r, ["revenue", "sales", "total", "amount", "income", "sale"])),
+      fees: num(pick(r, ["fees", "fee", "expenses", "stall", "platformfee", "cost"]))
+    })).filter(x => x.name || x.revenue || x.units);
+    if (!mapped.length) return alert("No rows found. Check the template columns.");
+    setEvents(a => [...mapped, ...a]);
+  });
+  const uploadPurchases = file => readSheet(file, rows => {
+    const mapped = rows.map(r => ({
+      id: uid(),
+      date: normDate(pick(r, ["date", "orderdate", "purchasedate"])),
+      item: String(pick(r, ["item", "description", "name", "product", "style", "source"]) || ""),
+      qty: num(pick(r, ["qty", "quantity", "units", "rings", "count"])),
+      price: num(pick(r, ["price", "cost", "total", "amount", "spend", "paid"]))
+    })).filter(x => x.item || x.qty || x.price);
+    if (!mapped.length) return alert("No rows found. Check the template columns.");
+    setPurchases(a => [...mapped, ...a]);
+  });
+  const dl = (name, text) => {
+    const url = URL.createObjectURL(new Blob([text], {
+      type: "text/csv"
+    }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const eventsTemplate = () => dl("events-template.csv", "Date,Name,Channel,Units,Revenue,Fees\n2026-08-10,Plainfield Pike Flea Market,Flea market,6,320,40\n2026-08-15,Etsy August,Etsy,4,210,18\n");
+  const purchasesTemplate = () => dl("purchases-template.csv", "Date,Item,Qty,Price\n2026-07-20,SHEIN solitaire lot,20,240\n2026-07-25,Rose gold band,5,80\n");
+  const exportData = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({
+      purchases,
+      events
+    }, null, 2)], {
+      type: "application/json"
+    }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "eternalshine-backup-" + today() + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  const importData = file => {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = e => {
+      try {
+        applyData(JSON.parse(e.target.result));
+        alert("Backup restored.");
+      } catch (err) {
+        alert("That file isn't a valid backup.");
+      }
+    };
+    r.readAsText(file);
+  };
+
+  /* profit: event net = revenue − fees − rings sold × avg ring cost */
+  const T = useMemo(() => {
+    let revenue = 0,
+      fees = 0,
+      unitsSold = 0,
+      cogs = 0,
+      net = 0;
+    events.forEach(e => {
+      const rev = num(e.revenue),
+        fee = num(e.fees),
+        u = num(e.units);
+      const c = u * num(e.cost);
+      revenue += rev;
+      fees += fee;
+      unitsSold += u;
+      cogs += c;
+      net += rev - fee - c;
+    });
+    return {
+      revenue,
+      fees,
+      unitsSold,
+      cogs,
+      net
+    };
+  }, [events]);
+  const inStock = totalQty - T.unitsSold;
+  const inventoryValue = inStock * avgCost;
+  const cashNet = T.revenue - T.fees - totalCost; // overall: sales − all purchases − fees (unsold rings included)
+
+  const channelRows = useMemo(() => {
+    const map = {};
+    events.forEach(e => {
+      const c = e.channel || "Other";
+      const rev = num(e.revenue),
+        fee = num(e.fees),
+        u = num(e.units);
+      const net = rev - fee - u * num(e.cost);
+      if (!map[c]) map[c] = {
+        channel: c,
+        events: 0,
+        units: 0,
+        revenue: 0,
+        profit: 0
+      };
+      map[c].events++;
+      map[c].units += u;
+      map[c].revenue += rev;
+      map[c].profit += net;
+    });
+    return Object.values(map).sort((a, b) => b.profit - a.profit);
+  }, [events]);
+  const monthly = useMemo(() => {
+    const map = {};
+    events.forEach(e => {
+      const m = (e.date || "").slice(0, 7);
+      if (!m) return;
+      const rev = num(e.revenue),
+        fee = num(e.fees),
+        u = num(e.units);
+      const net = rev - fee - u * num(e.cost);
+      if (!map[m]) map[m] = {
+        m,
+        revenue: 0,
+        profit: 0
+      };
+      map[m].revenue += rev;
+      map[m].profit += net;
+    });
+    return Object.values(map).sort((a, b) => a.m < b.m ? -1 : 1).map(x => ({
+      label: monthLabel(x.m),
+      revenue: x.revenue,
+      profit: x.profit
+    }));
+  }, [events]);
+  if (!loaded) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.paper,
+      minHeight: "100vh",
+      color: C.sub
+    },
+    className: "flex items-center justify-center text-sm"
+  }, "Loading…");
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.paper,
+      color: C.ink,
+      minHeight: "100vh"
+    },
+    className: "w-full"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.paper,
+      borderBottom: `1px solid ${C.line}`
+    },
+    className: "px-4 sm:px-6 py-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-3"
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.blush,
+      border: `1px solid ${C.line}`
+    },
+    className: "h-10 w-10 rounded-full flex items-center justify-center"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "gem",
+    size: 19,
+    color: C.gold
+  })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "serif text-2xl leading-none",
+    style: {
+      color: C.ink
+    }
+  }, "EternalShine by Samy"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      color: C.sub
+    },
+    className: "text-xs mt-1"
+  }, "EternalShine by Samy · ", status))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: reload,
+    style: {
+      color: C.sub,
+      border: `1px solid ${C.line}`,
+      background: C.card
+    },
+    className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "settings",
+    size: 13,
+    color: C.sub
+  }), " Reload"), /*#__PURE__*/React.createElement("button", {
+    onClick: exportData,
+    style: {
+      color: C.sub,
+      border: `1px solid ${C.line}`,
+      background: C.card
+    },
+    className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "download",
+    size: 13,
+    color: C.sub
+  }), " Backup"), /*#__PURE__*/React.createElement("label", {
+    htmlFor: "restore",
+    style: {
+      color: C.sub,
+      border: `1px solid ${C.line}`,
+      background: C.card
+    },
+    className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1 cursor-pointer"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "upload",
+    size: 13,
+    color: C.sub
+  }), " Restore"), /*#__PURE__*/React.createElement("input", {
+    id: "restore",
+    type: "file",
+    accept: ".json",
+    className: "hidden",
+    onChange: e => {
+      importData(e.target.files[0]);
+      e.target.value = "";
+    }
+  })))), /*#__PURE__*/React.createElement("div", {
+    className: "max-w-5xl mx-auto px-4 sm:px-6 py-5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    color: C.in,
+    icon: "trending-up",
+    label: "Total revenue",
+    value: money(T.revenue),
+    sub: T.unitsSold + " rings sold"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    color: C.out,
+    icon: "trending-down",
+    label: "Total spent",
+    value: money(totalCost + T.fees),
+    sub: money(totalCost) + " rings + " + money(T.fees) + " fees"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    color: cashNet >= 0 ? C.in : C.out,
+    icon: "wallet",
+    label: "Net profit",
+    value: money(cashNet),
+    sub: "revenue − total spent (incl. unsold rings)"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    color: C.gold,
+    icon: "package",
+    label: "Rings in stock",
+    value: String(inStock),
+    sub: "worth " + money(inventoryValue)
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "mt-5 flex gap-1 overflow-x-auto pb-1"
+  }, [["overview", "Overview"], ["events", "Events & sales"], ["purchases", "Purchases"]].map(([id, lbl]) => /*#__PURE__*/React.createElement("button", {
+    key: id,
+    onClick: () => setTab(id),
+    style: {
+      background: tab === id ? C.ink : "transparent",
+      color: tab === id ? "#fff" : C.sub,
+      border: `1px solid ${tab === id ? C.ink : C.line}`
+    },
+    className: "px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap"
+  }, lbl))), /*#__PURE__*/React.createElement("div", {
+    className: "mt-4"
+  }, tab === "overview" && /*#__PURE__*/React.createElement(Overview, {
+    monthly: monthly,
+    channelRows: channelRows,
+    net: T.net,
+    empty: !events.length && !purchases.length,
+    go: () => setTab("events")
+  }), tab === "events" && /*#__PURE__*/React.createElement(EventsTab, {
+    events: events,
+    totals: T,
+    onAdd: addEvent,
+    onUpdate: updateEvent,
+    onRemove: removeEvent,
+    onUpload: uploadEvents,
+    onTemplate: eventsTemplate
+  }), tab === "purchases" && /*#__PURE__*/React.createElement(PurchasesTab, {
+    purchases: purchases,
+    totalQty: totalQty,
+    totalCost: totalCost,
+    inStock: inStock,
+    onAdd: addPurchase,
+    onUpdate: updatePurchase,
+    onRemove: removePurchase,
+    onUpload: uploadPurchases,
+    onTemplate: purchasesTemplate
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs mt-6 text-center",
+    style: {
+      color: C.sub
+    }
+  }, serverMode ? /*#__PURE__*/React.createElement("span", null, "Data is saved to a file beside the app — your own local database. Back it up now and then to keep history.") : /*#__PURE__*/React.createElement("span", null, "Running without the local server, so data is in this browser only. Use ", /*#__PURE__*/React.createElement("b", null, "Backup"), " to keep a copy safe."))));
+}
+
+/* ---------- Overview ---------- */
+function SvgChart({
+  data
+}) {
+  if (!data || !data.length) return /*#__PURE__*/React.createElement(Muted, null, "Add events to see monthly profit.");
+  const W = 640,
+    H = 240,
+    padL = 46,
+    padR = 14,
+    padT = 14,
+    padB = 30;
+  const iw = W - padL - padR,
+    ih = H - padT - padB;
+  const revs = data.map(d => d.revenue),
+    profs = data.map(d => d.profit);
+  const maxV = Math.max(1, ...revs, ...profs);
+  const minV = Math.min(0, ...profs);
+  const range = maxV - minV || 1;
+  const y = v => padT + ih - (v - minV) / range * ih;
+  const n = data.length,
+    band = iw / n,
+    bw = Math.min(46, band * 0.55);
+  const grid = [];
+  for (let i = 0; i <= 4; i++) grid.push(minV + range * i / 4);
+  const base = y(0);
+  const profPts = data.map((d, i) => padL + band * i + band / 2 + "," + y(d.profit)).join(" ");
+  const chip = c => ({
+    background: c,
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    display: "inline-block"
+  });
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("svg", {
+    viewBox: "0 0 " + W + " " + H,
+    width: "100%",
+    style: {
+      display: "block"
+    }
+  }, grid.map((v, i) => /*#__PURE__*/React.createElement("g", {
+    key: "g" + i
+  }, /*#__PURE__*/React.createElement("line", {
+    x1: padL,
+    y1: y(v),
+    x2: W - padR,
+    y2: y(v),
+    stroke: C.line,
+    strokeWidth: "1"
+  }), /*#__PURE__*/React.createElement("text", {
+    x: padL - 6,
+    y: y(v) + 3,
+    textAnchor: "end",
+    fontSize: "10",
+    fill: C.sub
+  }, short(v)))), data.map((d, i) => {
+    const x0 = padL + band * i + (band - bw) / 2;
+    const yTop = y(d.revenue);
+    return /*#__PURE__*/React.createElement("g", {
+      key: "b" + i
+    }, /*#__PURE__*/React.createElement("rect", {
+      x: x0,
+      y: yTop,
+      width: bw,
+      height: Math.max(0, base - yTop),
+      fill: C.gold,
+      rx: "2"
+    }), /*#__PURE__*/React.createElement("text", {
+      x: x0 + bw / 2,
+      y: H - padB + 16,
+      textAnchor: "middle",
+      fontSize: "10",
+      fill: C.sub
+    }, d.label));
+  }), /*#__PURE__*/React.createElement("polyline", {
+    points: profPts,
+    fill: "none",
+    stroke: C.in,
+    strokeWidth: "2"
+  }), data.map((d, i) => /*#__PURE__*/React.createElement("circle", {
+    key: "n" + i,
+    cx: padL + band * i + band / 2,
+    cy: y(d.profit),
+    r: "3",
+    fill: C.in
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center justify-center gap-4 mt-2 text-xs",
+    style: {
+      color: C.sub
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    style: chip(C.gold)
+  }), " Revenue"), /*#__PURE__*/React.createElement("span", {
+    className: "inline-flex items-center gap-1"
+  }, /*#__PURE__*/React.createElement("span", {
+    style: chip(C.in)
+  }), " Net profit")));
+}
+function Overview({
+  monthly,
+  channelRows,
+  net,
+  empty,
+  go
+}) {
+  if (empty) return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px dashed ${C.line}`
+    },
+    className: "rounded-2xl p-8 text-center"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "gem",
+    size: 30,
+    color: C.gold,
+    className: "mx-auto"
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "serif text-xl mt-3"
+  }, "Nothing logged yet"), /*#__PURE__*/React.createElement("div", {
+    className: "text-sm mt-1",
+    style: {
+      color: C.sub
+    }
+  }, "Add your SHEIN purchases and your first selling event to see profit."), /*#__PURE__*/React.createElement("button", {
+    onClick: go,
+    style: {
+      background: C.in,
+      color: "#fff"
+    },
+    className: "mt-4 px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 15,
+    color: "#fff"
+  }), " Add an event"));
+  return /*#__PURE__*/React.createElement("div", {
+    className: "space-y-3"
+  }, /*#__PURE__*/React.createElement(Panel, {
+    title: "Revenue & net profit by month",
+    note: "Bars are revenue; the line is profit counting only the cost of rings sold that month. Multiple events roll up together."
+  }, /*#__PURE__*/React.createElement(SvgChart, {
+    data: monthly
+  }), /*#__PURE__*/React.createElement("div", {
+    className: "mt-3 pt-3 flex items-center justify-between text-sm",
+    style: {
+      borderTop: `1px solid ${C.line}`
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: {
+      color: C.sub
+    }
+  }, "Profit on rings sold (all time)"), /*#__PURE__*/React.createElement("span", {
+    className: "font-mono font-semibold",
+    style: {
+      color: net >= 0 ? C.in : C.out
+    }
+  }, money(net)))), /*#__PURE__*/React.createElement(Panel, {
+    title: "By channel",
+    note: "Which markets and platforms make you the most — ranked by net profit."
+  }, channelRows.length === 0 ? /*#__PURE__*/React.createElement(Muted, null, "No sales yet.") : channelRows.map(r => /*#__PURE__*/React.createElement("div", {
+    key: r.channel,
+    className: "py-2.5 flex items-center justify-between",
+    style: {
+      borderTop: `1px solid ${C.line}`
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "min-w-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-sm font-medium truncate"
+  }, r.channel), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs mt-0.5",
+    style: {
+      color: C.sub
+    }
+  }, r.events, " events · ", r.units, " rings · ", money(r.revenue), " revenue")), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono font-semibold ml-3",
+    style: {
+      color: r.profit >= 0 ? C.in : C.out
+    }
+  }, money(r.profit))))));
+}
+
+/* ---------- Events ---------- */
+function EventsTab({
+  events,
+  totals,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onUpload,
+  onTemplate
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onAdd,
+    style: {
+      background: C.ink,
+      color: "#fff"
+    },
+    className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 15,
+    color: "#fff"
+  }), " Add event"), /*#__PURE__*/React.createElement("label", {
+    htmlFor: "file-ev",
+    style: {
+      border: `1px solid ${C.line}`,
+      background: C.card
+    },
+    className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5 cursor-pointer"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "upload",
+    size: 15
+  }), " Upload"), /*#__PURE__*/React.createElement("input", {
+    id: "file-ev",
+    type: "file",
+    accept: ".csv,.xlsx,.xls",
+    className: "hidden",
+    onChange: e => {
+      onUpload(e.target.files[0]);
+      e.target.value = "";
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: onTemplate,
+    style: {
+      border: `1px solid ${C.line}`,
+      background: C.card,
+      color: C.sub
+    },
+    className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "download",
+    size: 15,
+    color: C.sub
+  }), " Template"), /*#__PURE__*/React.createElement("div", {
+    className: "ml-auto text-sm",
+    style: {
+      color: C.sub
+    }
+  }, "Profit on sales: ", /*#__PURE__*/React.createElement("span", {
+    className: "font-mono font-semibold",
+    style: {
+      color: totals.net >= 0 ? C.in : C.out
+    }
+  }, money(totals.net)))), events.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px dashed ${C.line}`,
+      color: C.sub
+    },
+    className: "rounded-2xl p-8 text-center text-sm"
+  }, "No events yet. Add one or upload a sheet.") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2.5"
+  }, events.map(e => /*#__PURE__*/React.createElement(EventCard, {
+    key: e.id,
+    e: e,
+    onUpdate: onUpdate,
+    onRemove: onRemove
+  }))));
+}
+function EventCard({
+  e,
+  onUpdate,
+  onRemove
+}) {
+  const up = f => ev => onUpdate(e.id, f, ev.target.value);
+  const u = num(e.units),
+    rev = num(e.revenue),
+    fee = num(e.fees),
+    cost = num(e.cost);
+  const cogs = u * cost,
+    net = rev - fee - cogs,
+    avgSell = u ? rev / u : 0;
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px solid ${C.line}`
+    },
+    className: "rounded-2xl p-3.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs",
+    style: {
+      color: C.sub
+    }
+  }, "Market / event name"), /*#__PURE__*/React.createElement("input", {
+    value: e.name,
+    onChange: up("name"),
+    placeholder: "e.g. Plainfield Pike Flea Market",
+    className: "w-full mt-0.5 text-base font-medium bg-transparent outline-none",
+    style: {
+      color: C.ink
+    }
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "text-right shrink-0"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "text-xs",
+    style: {
+      color: C.sub
+    }
+  }, "Net profit"), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono text-base font-semibold",
+    style: {
+      color: net >= 0 ? C.in : C.out
+    }
+  }, money(net))), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onRemove(e.id),
+    className: "p-1 shrink-0",
+    style: {
+      color: C.danger
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "trash",
+    size: 16,
+    color: C.danger
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-2 mt-2.5"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: e.date,
+    onChange: up("date"),
+    style: {
+      border: `1px solid ${C.line}`
+    },
+    className: "px-2.5 py-1.5 rounded-lg text-sm outline-none"
+  }), /*#__PURE__*/React.createElement("select", {
+    value: e.channel,
+    onChange: up("channel"),
+    style: {
+      border: `1px solid ${C.line}`
+    },
+    className: "px-2.5 py-1.5 rounded-lg text-sm outline-none bg-transparent"
+  }, CHANNELS.map(c => /*#__PURE__*/React.createElement("option", {
+    key: c,
+    value: c
+  }, c)))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Rings sold"
+  }, /*#__PURE__*/React.createElement("input", {
+    inputMode: "numeric",
+    value: e.units,
+    onChange: up("units"),
+    placeholder: "0",
+    className: "fld font-mono"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Revenue ($)"
+  }, /*#__PURE__*/React.createElement("input", {
+    inputMode: "decimal",
+    value: e.revenue,
+    onChange: up("revenue"),
+    placeholder: "0",
+    className: "fld font-mono"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Avg cost / ring ($)"
+  }, /*#__PURE__*/React.createElement("input", {
+    inputMode: "decimal",
+    value: e.cost,
+    onChange: up("cost"),
+    placeholder: "0",
+    className: "fld font-mono"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Fees ($)"
+  }, /*#__PURE__*/React.createElement("input", {
+    inputMode: "decimal",
+    value: e.fees,
+    onChange: up("fees"),
+    placeholder: "0",
+    className: "fld font-mono"
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-2 gap-2 mt-3 pt-3",
+    style: {
+      borderTop: `1px solid ${C.line}`
+    }
+  }, /*#__PURE__*/React.createElement(Stat, {
+    label: "Avg sell / ring",
+    value: money(avgSell),
+    color: C.ink
+  }), /*#__PURE__*/React.createElement(Stat, {
+    label: "Ring cost (this event)",
+    value: money(cogs),
+    color: C.out
+  })));
+}
+
+/* ---------- Purchases ---------- */
+function PurchasesTab({
+  purchases,
+  totalQty,
+  totalCost,
+  inStock,
+  onAdd,
+  onUpdate,
+  onRemove,
+  onUpload,
+  onTemplate
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-3 mb-3"
+  }, /*#__PURE__*/React.createElement(Kpi, {
+    small: true,
+    color: C.out,
+    icon: "wallet",
+    label: "Spent on rings",
+    value: money(totalCost),
+    sub: "all purchases"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    small: true,
+    color: C.gold,
+    icon: "package",
+    label: "Rings bought",
+    value: String(totalQty),
+    sub: "total"
+  }), /*#__PURE__*/React.createElement(Kpi, {
+    small: true,
+    color: C.in,
+    icon: "trending-up",
+    label: "In stock",
+    value: String(inStock),
+    sub: "bought − sold"
+  })), /*#__PURE__*/React.createElement("div", {
+    className: "flex flex-wrap items-center gap-2 mb-3"
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onAdd,
+    style: {
+      background: C.ink,
+      color: "#fff"
+    },
+    className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "plus",
+    size: 15,
+    color: "#fff"
+  }), " Add item"), /*#__PURE__*/React.createElement("label", {
+    htmlFor: "file-pu",
+    style: {
+      border: `1px solid ${C.line}`,
+      background: C.card
+    },
+    className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5 cursor-pointer"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "upload",
+    size: 15
+  }), " Upload"), /*#__PURE__*/React.createElement("input", {
+    id: "file-pu",
+    type: "file",
+    accept: ".csv,.xlsx,.xls",
+    className: "hidden",
+    onChange: e => {
+      onUpload(e.target.files[0]);
+      e.target.value = "";
+    }
+  }), /*#__PURE__*/React.createElement("button", {
+    onClick: onTemplate,
+    style: {
+      border: `1px solid ${C.line}`,
+      background: C.card,
+      color: C.sub
+    },
+    className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5"
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "download",
+    size: 15,
+    color: C.sub
+  }), " Template")), purchases.length === 0 ? /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px dashed ${C.line}`,
+      color: C.sub
+    },
+    className: "rounded-2xl p-8 text-center text-sm"
+  }, "No items yet. Add each SHEIN order or item with its date and price.") : /*#__PURE__*/React.createElement("div", {
+    className: "space-y-2.5"
+  }, purchases.map(p => /*#__PURE__*/React.createElement(PurchaseCard, {
+    key: p.id,
+    p: p,
+    onUpdate: onUpdate,
+    onRemove: onRemove
+  }))));
+}
+function PurchaseCard({
+  p,
+  onUpdate,
+  onRemove
+}) {
+  const up = f => ev => onUpdate(p.id, f, ev.target.value);
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px solid ${C.line}`
+    },
+    className: "rounded-2xl p-3.5"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-start gap-2"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex-1 min-w-0"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs",
+    style: {
+      color: C.sub
+    }
+  }, "Item"), /*#__PURE__*/React.createElement("input", {
+    value: p.item,
+    onChange: up("item"),
+    placeholder: "e.g. SHEIN solitaire lot, rose gold band",
+    className: "w-full mt-0.5 text-base font-medium bg-transparent outline-none",
+    style: {
+      color: C.ink
+    }
+  })), /*#__PURE__*/React.createElement("button", {
+    onClick: () => onRemove(p.id),
+    className: "p-1 shrink-0",
+    style: {
+      color: C.danger
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: "trash",
+    size: 16,
+    color: C.danger
+  }))), /*#__PURE__*/React.createElement("div", {
+    className: "grid grid-cols-3 gap-2 mt-2.5"
+  }, /*#__PURE__*/React.createElement(Field, {
+    label: "Date"
+  }, /*#__PURE__*/React.createElement("input", {
+    type: "date",
+    value: p.date,
+    onChange: up("date"),
+    className: "fld"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Qty (rings)"
+  }, /*#__PURE__*/React.createElement("input", {
+    inputMode: "numeric",
+    value: p.qty,
+    onChange: up("qty"),
+    placeholder: "1",
+    className: "fld font-mono"
+  })), /*#__PURE__*/React.createElement(Field, {
+    label: "Price ($)"
+  }, /*#__PURE__*/React.createElement("input", {
+    inputMode: "decimal",
+    value: p.price,
+    onChange: up("price"),
+    placeholder: "0",
+    className: "fld font-mono"
+  }))));
+}
+
+/* ---------- shared ---------- */
+function Kpi({
+  color,
+  icon,
+  label,
+  value,
+  sub,
+  small
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px solid ${C.line}`
+    },
+    className: "rounded-2xl " + (small ? "p-3" : "p-4")
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "flex items-center gap-2",
+    style: {
+      color
+    }
+  }, /*#__PURE__*/React.createElement(Icon, {
+    name: icon,
+    size: small ? 14 : 16,
+    color: color
+  }), /*#__PURE__*/React.createElement("span", {
+    className: "text-xs font-medium",
+    style: {
+      color: C.sub
+    }
+  }, label)), /*#__PURE__*/React.createElement("div", {
+    className: "mt-1.5 font-mono font-semibold " + (small ? "text-lg" : "text-2xl"),
+    style: {
+      color
+    }
+  }, value), /*#__PURE__*/React.createElement("div", {
+    className: "text-xs mt-0.5",
+    style: {
+      color: C.sub
+    }
+  }, sub));
+}
+function Panel({
+  title,
+  note,
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: C.card,
+      border: `1px solid ${C.line}`
+    },
+    className: "rounded-2xl p-4"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "serif text-lg leading-tight"
+  }, title), note && /*#__PURE__*/React.createElement("div", {
+    className: "text-xs mt-0.5 mb-3",
+    style: {
+      color: C.sub
+    }
+  }, note), children);
+}
+function Field({
+  label,
+  children
+}) {
+  return /*#__PURE__*/React.createElement("label", {
+    className: "block"
+  }, /*#__PURE__*/React.createElement("span", {
+    className: "text-xs",
+    style: {
+      color: C.sub
+    }
+  }, label), /*#__PURE__*/React.createElement("div", {
+    className: "mt-0.5"
+  }, children));
+}
+function Stat({
+  label,
+  value,
+  color
+}) {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    className: "text-xs",
+    style: {
+      color: C.sub
+    }
+  }, label), /*#__PURE__*/React.createElement("div", {
+    className: "font-mono text-sm font-semibold mt-0.5",
+    style: {
+      color
+    }
+  }, value));
+}
+function Muted({
+  children
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "text-sm py-6 text-center",
+    style: {
+      color: C.sub
+    }
+  }, children);
+}
+class ErrBoundary extends React.Component {
+  constructor(p) {
+    super(p);
+    this.state = {
+      e: null
+    };
+  }
+  static getDerivedStateFromError(e) {
+    return {
+      e
+    };
+  }
+  render() {
+    if (this.state.e) {
+      return /*#__PURE__*/React.createElement("div", {
+        style: {
+          padding: 24,
+          maxWidth: 640,
+          margin: "40px auto",
+          color: C.ink,
+          fontFamily: "ui-sans-serif, system-ui"
+        }
+      }, /*#__PURE__*/React.createElement("div", {
+        style: {
+          fontWeight: 600,
+          color: C.danger,
+          marginBottom: 8
+        }
+      }, "The dashboard hit an error."), /*#__PURE__*/React.createElement("pre", {
+        style: {
+          whiteSpace: "pre-wrap",
+          fontSize: 13
+        }
+      }, String(this.state.e && this.state.e.message || this.state.e)));
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(/*#__PURE__*/React.createElement(ErrBoundary, null, /*#__PURE__*/React.createElement(App, null)));
+</script>
+</body>
+</html>

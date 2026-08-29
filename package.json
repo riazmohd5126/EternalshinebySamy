@@ -1,0 +1,25 @@
+{
+  "name": "eternalshine-by-samy",
+  "version": "1.0.0",
+  "description": "EternalShine by Samy — moissanite sales & profit dashboard",
+  "main": "main.js",
+  "author": "EternalShine by Samy",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^32.2.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.eternalshinebysamy.dashboard",
+    "productName": "EternalShine by Samy",
+    "files": ["main.js", "samy-sparkle.html", "icon.png"],
+    "mac": {
+      "target": ["dir"],
+      "icon": "icon.png",
+      "category": "public.app-category.business"
+    }
+  }
+}
