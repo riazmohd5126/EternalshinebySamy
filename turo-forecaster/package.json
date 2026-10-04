@@ -1,0 +1,24 @@
+{
+  "name": "turo-car-forecaster",
+  "version": "0.1.0",
+  "description": "Turo Car Forecaster — earnings, costs and payback for a car you plan to rent on Turo",
+  "main": "main.js",
+  "scripts": {
+    "web": "node server.js",
+    "start": "electron .",
+    "dist": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^32.2.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.eternalshinebysamy.turoforecaster",
+    "productName": "Turo Car Forecaster",
+    "files": ["main.js", "server.js", "turo-forecaster.html"],
+    "mac": {
+      "target": ["dir"],
+      "category": "public.app-category.finance"
+    }
+  }
+}
