@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Monthly Expenses</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background:#F6F7F4; }
+  .serif { font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif; letter-spacing: .2px; }
+  input::placeholder { color: #A9B0AC; }
+  .fld { width:100%; background:transparent; outline:none; font-size:13px; border:1px solid #E3E6E0; border-radius:8px; padding:0 9px; height:34px; color:#22303C; }
+  .fld:focus { border-color:#3F6E8C; }
+  .bar-hit { cursor:pointer; }
+  .bar-hit:hover rect { opacity:.85; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+addEventListener("error", function (e) {
+  var r = document.getElementById("root");
+  if (r && !r.firstChild) {
+    var msg = (e && (e.message || (e.error && e.error.message))) || "A script failed to load.";
+    r.innerHTML = '<div style="font-family:ui-sans-serif,system-ui;padding:24px;max-width:640px;margin:40px auto;color:#22303C"><div style="font-weight:600;color:#9B2C2C;margin-bottom:8px">The app could not start.</div><div style="font-size:14px;line-height:1.5">' + msg + '</div><div style="font-size:13px;color:#7C8580;margin-top:12px">If this mentions unpkg or cdnjs, it is an internet / first-load issue — connect and refresh. Otherwise send this text to Claude.</div></div>';
+  }
+}, true);
+</script>
+
+<script>
+const { useState, useEffect, useMemo } = React;
+const h = React.createElement;
+
+const C = {
+  ink: "#22303C",
+  paper: "#F6F7F4",
+  card: "#FFFFFF",
+  line: "#E3E6E0",
+  sub: "#7C8580",
+  accent: "#3F6E8C",
+  good: "#2E7D6B",
+  bad: "#C0563F",
+  danger: "#9B2C2C",
+  soft: "#EAF0F3"
+};
+
+/* The fixed spending categories. Order here is the order shown everywhere. */
+const CATS = [
+  { id: "rent", label: "Rent", icon: "home", color: "#3F6E8C" },
+  { id: "gas", label: "Gas", icon: "flame", color: "#D08C3C" },
+  { id: "electricity", label: "Electricity", icon: "bolt", color: "#C9A227" },
+  { id: "groceries", label: "Groceries", icon: "cart", color: "#4E9A6B" },
+  { id: "internet", label: "Internet / WiFi", icon: "wifi", color: "#6C63B5" },
+  { id: "subscriptions", label: "Subscriptions", hint: "Netflix, Prime…", icon: "tv", color: "#C2577A" },
+  { id: "fuel", label: "Fuel", icon: "fuel", color: "#8A6A4F" },
+  { id: "other", label: "Other", icon: "dots", color: "#8C949A" }
+];
+const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+const CURRENCIES = ["$", "£", "€", "₹", "₨", "AED ", "SAR ", "¥"];
+
+/* icons: [tag, attrs] lists, drawn as 24×24 strokes */
+const I = {
+  home: [["path", { d: "M3 10.5 12 3l9 7.5" }], ["path", { d: "M5 9.5V21h14V9.5" }], ["path", { d: "M10 21v-6h4v6" }]],
+  flame: [["path", { d: "M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z" }]],
+  bolt: [["path", { d: "M13 2 3 14h9l-1 8 10-12h-9l1-8z" }]],
+  cart: [["circle", { cx: "9", cy: "21", r: "1" }], ["circle", { cx: "20", cy: "21", r: "1" }], ["path", { d: "M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" }]],
+  wifi: [["path", { d: "M5 12.55a11 11 0 0 1 14.08 0" }], ["path", { d: "M1.42 9a16 16 0 0 1 21.16 0" }], ["path", { d: "M8.53 16.11a6 6 0 0 1 6.95 0" }], ["line", { x1: "12", y1: "20", x2: "12.01", y2: "20" }]],
+  tv: [["rect", { x: "2", y: "7", width: "20", height: "15", rx: "2" }], ["polyline", { points: "17 2 12 7 7 2" }]],
+  fuel: [["path", { d: "M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18" }], ["path", { d: "M2 22h14" }], ["path", { d: "M3 10h12" }], ["path", { d: "M15 8h2a2 2 0 0 1 2 2v7a1.5 1.5 0 0 0 3 0V9l-3-3" }]],
+  dots: [["circle", { cx: "5", cy: "12", r: "1" }], ["circle", { cx: "12", cy: "12", r: "1" }], ["circle", { cx: "19", cy: "12", r: "1" }]],
+  plus: [["line", { x1: "12", y1: "5", x2: "12", y2: "19" }], ["line", { x1: "5", y1: "12", x2: "19", y2: "12" }]],
+  trash: [["polyline", { points: "3 6 5 6 21 6" }], ["path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" }]],
+  upload: [["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }], ["polyline", { points: "17 8 12 3 7 8" }], ["line", { x1: "12", y1: "3", x2: "12", y2: "15" }]],
+  download: [["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }], ["polyline", { points: "7 10 12 15 17 10" }], ["line", { x1: "12", y1: "15", x2: "12", y2: "3" }]],
+  refresh: [["path", { d: "M21 12a9 9 0 1 1-3-6.7L21 8" }], ["polyline", { points: "21 3 21 8 16 8" }]],
+  repeat: [["polyline", { points: "17 1 21 5 17 9" }], ["path", { d: "M3 11V9a4 4 0 0 1 4-4h14" }], ["polyline", { points: "7 23 3 19 7 15" }], ["path", { d: "M21 13v2a4 4 0 0 1-4 4H3" }]],
+  left: [["polyline", { points: "15 18 9 12 15 6" }]],
+  right: [["polyline", { points: "9 18 15 12 9 6" }]],
+  wallet: [["path", { d: "M21 12V7H5a2 2 0 0 1 0-4h14v4" }], ["path", { d: "M3 5v14a2 2 0 0 0 2 2h16v-5" }], ["path", { d: "M18 12a2 2 0 0 0 0 4h4v-4Z" }]],
+  target: [["circle", { cx: "12", cy: "12", r: "9" }], ["circle", { cx: "12", cy: "12", r: "5" }], ["circle", { cx: "12", cy: "12", r: "1" }]],
+  up: [["polyline", { points: "3 17 9 11 13 15 21 7" }], ["polyline", { points: "15 7 21 7 21 13" }]],
+  down: [["polyline", { points: "3 7 9 13 13 9 21 17" }], ["polyline", { points: "15 17 21 17 21 11" }]],
+  calendar: [["rect", { x: "3", y: "4", width: "18", height: "18", rx: "2" }], ["line", { x1: "16", y1: "2", x2: "16", y2: "6" }], ["line", { x1: "8", y1: "2", x2: "8", y2: "6" }], ["line", { x1: "3", y1: "10", x2: "21", y2: "10" }]]
+};
+function Icon({ name, size = 16, color = "currentColor", className, style }) {
+  return h("svg", {
+    xmlns: "http://www.w3.org/2000/svg", width: size, height: size, viewBox: "0 0 24 24",
+    fill: "none", stroke: color, strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round",
+    className, style
+  }, (I[name] || []).map(([tag, attrs], i) => h(tag, { key: i, ...attrs })));
+}
+
+/* ---------- helpers ---------- */
+const KEY = "monthly-expenses-v1";
+let CUR = "$"; // currency symbol, set from settings on every render of App
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const num = v => {
+  const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, ""));
+  return isFinite(n) ? n : 0;
+};
+const money = (n, d = 2) => (n < 0 ? "−" : "") + CUR + new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: d,
+  maximumFractionDigits: d
+}).format(Math.abs(isFinite(n) ? n : 0));
+const short = n => {
+  const a = Math.abs(n);
+  if (a >= 1e6) return CUR + (n / 1e6).toFixed(1) + "M";
+  if (a >= 1e3) return CUR + (n / 1e3).toFixed(1) + "k";
+  return CUR + Math.round(n);
+};
+const pad = n => String(n).padStart(2, "0");
+const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const today = () => ymd(new Date());
+const thisMonth = () => today().slice(0, 7);
+const shiftMonth = (m, k) => {
+  const [y, mo] = m.split("-").map(Number);
+  const d = new Date(y, mo - 1 + k, 1);
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1);
+};
+const daysIn = m => {
+  const [y, mo] = m.split("-").map(Number);
+  return new Date(y, mo, 0).getDate();
+};
+const monthLabel = (m, style = "long") => {
+  if (!m) return "—";
+  const [y, mo] = String(m).split("-");
+  const d = new Date(Number(y), Number(mo) - 1, 1);
+  if (isNaN(d)) return m;
+  if (style === "tiny") return d.toLocaleString("en-US", { month: "short" });
+  return d.toLocaleString("en-US", { month: style === "long" ? "long" : "short", year: "numeric" });
+};
+const normDate = v => {
+  if (v === "" || v == null) return "";
+  if (typeof v === "number") {
+    const dt = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if (!isNaN(dt)) return dt.toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const dt = new Date(s);
+  return isNaN(dt) ? s : ymd(dt);
+};
+const pick = (row, keys) => {
+  const low = {};
+  Object.keys(row).forEach(k => low[k.toLowerCase().replace(/[^a-z]/g, "")] = row[k]);
+  for (const k of keys) if (low[k] !== undefined && low[k] !== "") return low[k];
+  return "";
+};
+/* Map free text ("Netflix", "petrol", "broadband") to a category id. Fuel is checked before gas so "gasoline" lands in fuel. */
+const CAT_WORDS = [
+  ["fuel", ["fuel", "petrol", "diesel", "gasoline", "cng"]],
+  ["subscriptions", ["subscription", "subs", "netflix", "prime", "spotify", "disney", "hulu", "hotstar", "youtube", "apple tv", "hbo"]],
+  ["internet", ["internet", "wifi", "wi-fi", "broadband", "fibre", "fiber"]],
+  ["electricity", ["electricity", "electric", "power", "energy"]],
+  ["gas", ["gas", "heating", "lpg", "cylinder"]],
+  ["groceries", ["grocery", "groceries", "grocer", "supermarket", "food", "vegetables"]],
+  ["rent", ["rent", "mortgage", "lease"]]
+];
+const guessCat = (...texts) => {
+  const t = texts.map(x => String(x || "").toLowerCase()).join(" ").trim();
+  if (!t) return "other";
+  for (const c of CATS) if (t === c.id || t === c.label.toLowerCase()) return c.id;
+  for (const [id, words] of CAT_WORDS) if (words.some(w => t.includes(w))) return id;
+  return "other";
+};
+const dl = (name, text, type = "text/csv") => {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+const csvCell = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+
+/* =================================================================== */
+function App() {
+  const [tab, setTab] = useState("overview");
+  const [month, setMonth] = useState(thisMonth());
+  const [expenses, setExpenses] = useState([]);
+  const [settings, setSettings] = useState({ currency: "$", budgets: {} });
+  const [loaded, setLoaded] = useState(false);
+  const [serverMode, setServerMode] = useState(false);
+  const [status, setStatus] = useState("…");
+  CUR = settings.currency || "$";
+
+  const applyData = d => {
+    setExpenses((d.expenses || []).map(e => ({
+      id: e.id || uid(),
+      date: e.date || "",
+      category: CAT[e.category] ? e.category : guessCat(e.category, e.note),
+      note: e.note ?? "",
+      amount: e.amount ?? "",
+      recurring: !!e.recurring
+    })));
+    const s = d.settings || {};
+    setSettings({ currency: s.currency || "$", budgets: s.budgets || {} });
+  };
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/data", { cache: "no-store" });
+        if (r.ok) {
+          applyData(await r.json());
+          setServerMode(true);
+          setStatus("Saved to file");
+          setLoaded(true);
+          return;
+        }
+      } catch (e) {}
+      try {
+        const raw = localStorage.getItem(KEY);
+        if (raw) applyData(JSON.parse(raw));
+      } catch (e) {}
+      setStatus("Saved in this browser");
+      setLoaded(true);
+    })();
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    const payload = JSON.stringify({ expenses, settings });
+    const t = setTimeout(async () => {
+      try { localStorage.setItem(KEY, payload); } catch (e) {}
+      if (serverMode) {
+        try {
+          setStatus("Saving…");
+          const r = await fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+          setStatus(r.ok ? "Saved to file" : "Save failed — browser copy kept");
+        } catch (e) {
+          setStatus("Save failed — browser copy kept");
+        }
+      }
+    }, 500);
+    return () => clearTimeout(t);
+  }, [expenses, settings, loaded, serverMode]);
+  const reload = async () => {
+    if (serverMode) {
+      try {
+        const r = await fetch("/api/data", { cache: "no-store" });
+        if (r.ok) { applyData(await r.json()); setStatus("Reloaded from file"); return; }
+      } catch (e) {}
+    }
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) { applyData(JSON.parse(raw)); setStatus("Reloaded"); }
+    } catch (e) {}
+  };
+
+  /* ---- edits ---- */
+  const addExpense = e => setExpenses(a => [{ id: uid(), ...e }, ...a]);
+  const updateExpense = (id, f, v) => setExpenses(a => a.map(x => x.id === id ? { ...x, [f]: v } : x));
+  const removeExpense = id => setExpenses(a => a.filter(x => x.id !== id));
+  const setBudget = (cat, v) => setSettings(s => ({ ...s, budgets: { ...s.budgets, [cat]: v } }));
+  const setCurrency = v => setSettings(s => ({ ...s, currency: v }));
+
+  /* ---- totals per month ---- */
+  const byMonth = useMemo(() => {
+    const map = {};
+    expenses.forEach(e => {
+      const m = (e.date || "").slice(0, 7);
+      if (!m) return;
+      if (!map[m]) map[m] = { total: 0, count: 0, cats: {} };
+      const a = num(e.amount);
+      map[m].total += a;
+      map[m].count++;
+      map[m].cats[e.category] = (map[m].cats[e.category] || 0) + a;
+    });
+    return map;
+  }, [expenses]);
+  const empty = { total: 0, count: 0, cats: {} };
+  const cur = byMonth[month] || empty;
+  const prev = byMonth[shiftMonth(month, -1)] || empty;
+  const budgetTotal = CATS.reduce((s, c) => s + num(settings.budgets[c.id]), 0);
+  const monthExpenses = useMemo(() => expenses
+    .filter(e => (e.date || "").slice(0, 7) === month)
+    .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), [expenses, month]);
+
+  /* Recurring bills: copy the most recent earlier month's recurring entries into this month, skipping ones already here. */
+  const recurringPlan = useMemo(() => {
+    for (let k = 1; k <= 12; k++) {
+      const src = shiftMonth(month, -k);
+      const items = expenses.filter(e => e.recurring && (e.date || "").slice(0, 7) === src);
+      if (!items.length) continue;
+      const have = new Set(monthExpenses.map(e => e.category + "|" + String(e.note).trim().toLowerCase()));
+      const todo = items.filter(e => !have.has(e.category + "|" + String(e.note).trim().toLowerCase()));
+      return { src, items: todo };
+    }
+    return { src: null, items: [] };
+  }, [expenses, monthExpenses, month]);
+  const addRecurring = () => {
+    const last = daysIn(month);
+    setExpenses(a => [...recurringPlan.items.map(e => ({
+      ...e,
+      id: uid(),
+      date: month + "-" + pad(Math.min(last, Number((e.date || "").slice(8, 10)) || 1))
+    })), ...a]);
+  };
+
+  /* ---- import / export ---- */
+  const readSheet = (file, cb) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        cb(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" }));
+      } catch (err) {
+        alert("Could not read that file. Use a CSV or Excel file in the template format.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  const uploadExpenses = file => readSheet(file, rows => {
+    const mapped = rows.map(r => {
+      const note = String(pick(r, ["description", "note", "notes", "item", "name", "details", "payee"]) || "");
+      const rawCat = pick(r, ["category", "type", "cat"]);
+      return {
+        id: uid(),
+        date: normDate(pick(r, ["date", "paid", "paidon", "day"])),
+        category: guessCat(rawCat) !== "other" ? guessCat(rawCat) : guessCat(note),
+        note,
+        amount: num(pick(r, ["amount", "cost", "price", "total", "spent", "paid"])),
+        recurring: /^(y|yes|true|1|monthly)$/i.test(String(pick(r, ["recurring", "monthly", "repeat", "repeats"])).trim())
+      };
+    }).filter(x => x.amount || x.note);
+    if (!mapped.length) return alert("No rows found. Check the template columns.");
+    setExpenses(a => [...mapped, ...a]);
+    alert("Imported " + mapped.length + " expense" + (mapped.length === 1 ? "" : "s") + ".");
+  });
+  const template = () => dl("expenses-template.csv",
+    "Date,Category,Description,Amount,Recurring\n" +
+    "2026-10-01,Rent,Flat rent,1200,yes\n" +
+    "2026-10-03,Internet / WiFi,Home broadband,45,yes\n" +
+    "2026-10-05,Subscriptions,Netflix,15.49,yes\n" +
+    "2026-10-05,Subscriptions,Amazon Prime,14.99,yes\n" +
+    "2026-10-06,Groceries,Weekly shop,86.40,no\n" +
+    "2026-10-08,Fuel,Petrol,52,no\n" +
+    "2026-10-12,Electricity,Electric bill,74.10,no\n" +
+    "2026-10-12,Gas,Gas bill,38.75,no\n");
+  const exportMonth = () => dl("expenses-" + month + ".csv",
+    "Date,Category,Description,Amount,Recurring\n" +
+    monthExpenses.slice().reverse().map(e => [e.date, CAT[e.category]?.label || "Other", e.note, num(e.amount).toFixed(2), e.recurring ? "yes" : "no"].map(csvCell).join(",")).join("\n") + "\n");
+  const exportData = () => dl("expenses-backup-" + today() + ".json", JSON.stringify({ expenses, settings }, null, 2), "application/json");
+  const importData = file => {
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = e => {
+      try {
+        const d = JSON.parse(e.target.result);
+        if (!Array.isArray(d.expenses)) throw new Error();
+        applyData(d);
+        alert("Backup restored.");
+      } catch (err) {
+        alert("That file isn't a valid backup.");
+      }
+    };
+    r.readAsText(file);
+  };
+
+  if (!loaded) return h("div", { style: { background: C.paper, minHeight: "100vh", color: C.sub }, className: "flex items-center justify-center text-sm" }, "Loading…");
+
+  /* ---- KPI numbers ---- */
+  const nowM = thisMonth();
+  const daysCounted = month === nowM ? new Date().getDate() : month < nowM ? daysIn(month) : 0;
+  // Monthly bills (rent, WiFi…) are paid once, so the daily figure and projection only use day-to-day spending.
+  const billsTotal = expenses.reduce((s, e) => s + (e.recurring && (e.date || "").slice(0, 7) === month ? num(e.amount) : 0), 0);
+  const dailyAvg = daysCounted ? (cur.total - billsTotal) / daysCounted : 0;
+  const delta = cur.total - prev.total;
+  const left = budgetTotal - cur.total;
+
+  const hdrBtn = { color: C.sub, border: `1px solid ${C.line}`, background: C.card };
+  return h("div", { style: { background: C.paper, color: C.ink, minHeight: "100vh" }, className: "w-full" },
+    /* header */
+    h("div", { style: { background: C.paper, borderBottom: `1px solid ${C.line}` }, className: "px-4 sm:px-6 py-4" },
+      h("div", { className: "max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3" },
+        h("div", { className: "flex items-center gap-3" },
+          h("div", { style: { background: C.soft, border: `1px solid ${C.line}` }, className: "h-10 w-10 rounded-full flex items-center justify-center" },
+            h(Icon, { name: "wallet", size: 19, color: C.accent })),
+          h("div", null,
+            h("div", { className: "serif text-2xl leading-none" }, "Monthly Expenses"),
+            h("div", { style: { color: C.sub }, className: "text-xs mt-1" }, "Household spending · ", status))),
+        h("div", { className: "flex items-center gap-2" },
+          h("button", { onClick: reload, style: hdrBtn, className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1" },
+            h(Icon, { name: "refresh", size: 13, color: C.sub }), " Reload"),
+          h("button", { onClick: exportData, style: hdrBtn, className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1" },
+            h(Icon, { name: "download", size: 13, color: C.sub }), " Backup"),
+          h("label", { htmlFor: "restore", style: hdrBtn, className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1 cursor-pointer" },
+            h(Icon, { name: "upload", size: 13, color: C.sub }), " Restore"),
+          h("input", { id: "restore", type: "file", accept: ".json", className: "hidden", onChange: e => { importData(e.target.files[0]); e.target.value = ""; } })))),
+
+    h("div", { className: "max-w-5xl mx-auto px-4 sm:px-6 py-5" },
+      /* month switcher */
+      h("div", { className: "flex items-center justify-between gap-3 mb-4" },
+        h("div", { className: "flex items-center gap-1" },
+          h("button", { onClick: () => setMonth(shiftMonth(month, -1)), style: hdrBtn, className: "p-1.5 rounded-full", title: "Previous month" },
+            h(Icon, { name: "left", size: 16, color: C.ink })),
+          h("div", { className: "serif text-2xl px-2 min-w-[11rem] text-center" }, monthLabel(month)),
+          h("button", { onClick: () => setMonth(shiftMonth(month, 1)), style: hdrBtn, className: "p-1.5 rounded-full", title: "Next month" },
+            h(Icon, { name: "right", size: 16, color: C.ink }))),
+        month !== nowM && h("button", { onClick: () => setMonth(nowM), style: hdrBtn, className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1" },
+          h(Icon, { name: "calendar", size: 13, color: C.sub }), " This month")),
+
+      /* KPIs */
+      h("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" },
+        h(Kpi, { color: C.ink, icon: "wallet", label: "Spent in " + monthLabel(month, "tiny"), value: money(cur.total), sub: cur.count + " expense" + (cur.count === 1 ? "" : "s") }),
+        budgetTotal > 0
+          ? h(Kpi, { color: left >= 0 ? C.good : C.bad, icon: "target", label: left >= 0 ? "Budget left" : "Over budget", value: money(Math.abs(left)), sub: "of " + money(budgetTotal) + " budget" })
+          : h(Kpi, { color: C.sub, icon: "target", label: "Budget left", value: "—", sub: "set a budget in the Budgets tab" }),
+        h(Kpi, { color: delta > 0 ? C.bad : C.good, icon: delta > 0 ? "up" : "down", label: "vs " + monthLabel(shiftMonth(month, -1), "tiny"), value: (delta > 0 ? "+" : delta < 0 ? "−" : "") + money(Math.abs(delta)), sub: prev.total ? (delta > 0 ? "more" : "less") + " than " + money(prev.total) + " (" + Math.round(Math.abs(delta) / prev.total * 100) + "%)" : "nothing logged last month" }),
+        h(Kpi, { color: C.accent, icon: "calendar", label: "Day-to-day / day", value: daysCounted ? money(dailyAvg) : "—", sub: month === nowM && daysCounted ? "month on pace for " + money(billsTotal + dailyAvg * daysIn(month), 0) : daysCounted ? "excl. monthly bills" : "month hasn't started" })),
+
+      /* tabs */
+      h("div", { className: "mt-5 flex gap-1 overflow-x-auto pb-1" },
+        [["overview", "Overview"], ["expenses", "Expenses"], ["budgets", "Budgets"]].map(([id, lbl]) => h("button", {
+          key: id, onClick: () => setTab(id),
+          style: { background: tab === id ? C.ink : "transparent", color: tab === id ? "#fff" : C.sub, border: `1px solid ${tab === id ? C.ink : C.line}` },
+          className: "px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap"
+        }, lbl))),
+
+      h("div", { className: "mt-4" },
+        tab === "overview" && h(Overview, { month, byMonth, cur, prev, budgets: settings.budgets, budgetTotal, empty: !expenses.length, onPick: setMonth, go: () => setTab("expenses") }),
+        tab === "expenses" && h(ExpensesTab, { month, items: monthExpenses, total: cur.total, recurringPlan, onAddRecurring: addRecurring, onAdd: addExpense, onUpdate: updateExpense, onRemove: removeExpense, onUpload: uploadExpenses, onTemplate: template, onExport: exportMonth }),
+        tab === "budgets" && h(BudgetsTab, { month, byMonth, budgets: settings.budgets, budgetTotal, currency: settings.currency, onBudget: setBudget, onCurrency: setCurrency })),
+
+      h("div", { className: "text-xs mt-6 text-center", style: { color: C.sub } },
+        serverMode
+          ? h("span", null, "Data is saved to a file in Documents/Monthly-Expenses — your own local database. Back it up now and then to keep history.")
+          : h("span", null, "Running without the local server, so data is in this browser only. Use ", h("b", null, "Backup"), " to keep a copy safe."))));
+}
+
+/* ---------- Overview ---------- */
+function Overview({ month, byMonth, cur, prev, budgets, budgetTotal, empty, onPick, go }) {
+  if (empty) return h("div", { style: { background: C.card, border: `1px dashed ${C.line}` }, className: "rounded-2xl p-8 text-center" },
+    h(Icon, { name: "wallet", size: 30, color: C.accent, className: "mx-auto" }),
+    h("div", { className: "serif text-xl mt-3" }, "Nothing logged yet"),
+    h("div", { className: "text-sm mt-1", style: { color: C.sub } }, "Add your rent, bills, groceries and subscriptions to see where the money goes each month."),
+    h("button", { onClick: go, style: { background: C.accent, color: "#fff" }, className: "mt-4 px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5" },
+      h(Icon, { name: "plus", size: 15, color: "#fff" }), " Add an expense"));
+
+  const trend = [];
+  for (let k = 11; k >= 0; k--) {
+    const m = shiftMonth(month, -k);
+    trend.push({ m, ...(byMonth[m] || { total: 0, cats: {} }) });
+  }
+  const rows = CATS.map(c => ({ ...c, spent: cur.cats[c.id] || 0, last: prev.cats[c.id] || 0, budget: num(budgets[c.id]) }))
+    .filter(r => r.spent || r.budget || r.last)
+    .sort((a, b) => b.spent - a.spent);
+  const maxSpent = Math.max(1, ...rows.map(r => r.spent));
+  const withData = trend.filter(t => t.total > 0);
+  const avg = withData.length ? withData.reduce((s, t) => s + t.total, 0) / withData.length : 0;
+
+  return h("div", { className: "space-y-3" },
+    h(Panel, { title: "Where it went — " + monthLabel(month), note: budgetTotal ? "Each bar fills toward that category's monthly budget." : "Bars compare categories. Set budgets to track limits." },
+      cur.total > 0 && h("div", { className: "flex h-3 rounded-full overflow-hidden mb-3", style: { background: C.line } },
+        CATS.filter(c => cur.cats[c.id] > 0).map(c => h("div", { key: c.id, title: c.label + " " + money(cur.cats[c.id]), style: { width: (cur.cats[c.id] / cur.total * 100) + "%", background: c.color } }))),
+      rows.length === 0 ? h(Muted, null, "No expenses in " + monthLabel(month) + ".") : rows.map(r => {
+        const over = r.budget > 0 && r.spent > r.budget;
+        const fill = r.budget > 0 ? Math.min(1, r.spent / r.budget) : r.spent / maxSpent;
+        const diff = r.spent - r.last;
+        return h("div", { key: r.id, className: "py-2.5", style: { borderTop: `1px solid ${C.line}` } },
+          h("div", { className: "flex items-center gap-3" },
+            h(CatChip, { c: r }),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { className: "text-sm font-medium truncate" }, r.label),
+              h("div", { className: "text-xs mt-0.5", style: { color: C.sub } },
+                cur.total ? Math.round(r.spent / cur.total * 100) + "% of month" : "—",
+                r.last || r.spent ? h("span", null, " · ", diff === 0 ? "same as last month" : (diff > 0 ? "▲ " : "▼ ") + money(Math.abs(diff)) + " vs last month") : null)),
+            h("div", { className: "text-right shrink-0" },
+              h("div", { className: "font-mono font-semibold", style: { color: over ? C.bad : C.ink } }, money(r.spent)),
+              r.budget > 0 && h("div", { className: "text-xs", style: { color: over ? C.bad : C.sub } }, over ? "over by " + money(r.spent - r.budget) : money(r.budget - r.spent) + " left"))),
+          h("div", { className: "mt-2 h-1.5 rounded-full overflow-hidden ml-11", style: { background: C.line } },
+            h("div", { style: { width: (fill * 100) + "%", background: over ? C.bad : r.color, height: "100%" } })));
+      })),
+    h(Panel, { title: "Last 12 months", note: "Stacked by category. Click a month to open it." + (budgetTotal ? " Dashed line is your monthly budget." : "") },
+      h(TrendChart, { data: trend, month, budget: budgetTotal, onPick }),
+      avg > 0 && h("div", { className: "mt-3 pt-3 flex items-center justify-between text-sm", style: { borderTop: `1px solid ${C.line}` } },
+        h("span", { style: { color: C.sub } }, "Average month (", withData.length, " with spending)"),
+        h("span", { className: "font-mono font-semibold" }, money(avg)))));
+}
+const niceMax = v => {
+  const p = Math.pow(10, Math.floor(Math.log10(v)));
+  const f = v / p;
+  return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
+};
+function TrendChart({ data, month, budget, onPick }) {
+  const W = 640, H = 240, padL = 50, padR = 12, padT = 14, padB = 30;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const top = niceMax(Math.max(1, budget || 0, ...data.map(d => d.total)));
+  const y = v => padT + ih - v / top * ih;
+  const n = data.length, band = iw / n, bw = Math.min(30, band * 0.62);
+  const grid = [0, 1, 2, 3, 4].map(i => top * i / 4);
+  return h("div", null,
+    h("svg", { viewBox: "0 0 " + W + " " + H, width: "100%", style: { display: "block" } },
+      grid.map((v, i) => h("g", { key: "g" + i },
+        h("line", { x1: padL, y1: y(v), x2: W - padR, y2: y(v), stroke: C.line, strokeWidth: "1" }),
+        h("text", { x: padL - 6, y: y(v) + 3, textAnchor: "end", fontSize: "10", fill: C.sub }, short(v)))),
+      data.map((d, i) => {
+        const x0 = padL + band * i + (band - bw) / 2;
+        let acc = 0;
+        const sel = d.m === month;
+        return h("g", { key: d.m, className: "bar-hit", onClick: () => onPick(d.m) },
+          h("rect", { x: padL + band * i, y: padT, width: band, height: ih, fill: sel ? C.soft : "transparent" }),
+          h("title", null, monthLabel(d.m, "short") + ": " + money(d.total)),
+          CATS.map(c => {
+            const v = d.cats[c.id] || 0;
+            if (!v) return null;
+            const y1 = y(acc + v), y0 = y(acc);
+            acc += v;
+            return h("rect", { key: c.id, x: x0, y: y1, width: bw, height: Math.max(0, y0 - y1), fill: c.color });
+          }),
+          h("text", { x: x0 + bw / 2, y: H - padB + 16, textAnchor: "middle", fontSize: "10", fill: sel ? C.ink : C.sub, fontWeight: sel ? "700" : "400" }, monthLabel(d.m, "tiny")));
+      }),
+      budget > 0 && h("line", { x1: padL, y1: y(budget), x2: W - padR, y2: y(budget), stroke: C.bad, strokeWidth: "1.5", strokeDasharray: "5 4" })),
+    h("div", { className: "flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 text-xs", style: { color: C.sub } },
+      CATS.map(c => h("span", { key: c.id, className: "inline-flex items-center gap-1" },
+        h("span", { style: { background: c.color, width: 10, height: 10, borderRadius: 2, display: "inline-block" } }), " ", c.label))));
+}
+
+/* ---------- Expenses ---------- */
+function ExpensesTab({ month, items, total, recurringPlan, onAddRecurring, onAdd, onUpdate, onRemove, onUpload, onTemplate, onExport }) {
+  const [filter, setFilter] = useState("all");
+  const shown = filter === "all" ? items : items.filter(e => e.category === filter);
+  const present = CATS.filter(c => items.some(e => e.category === c.id));
+  const btn = { border: `1px solid ${C.line}`, background: C.card };
+  return h("div", null,
+    h(QuickAdd, { month, onAdd }),
+    h("div", { className: "flex flex-wrap items-center gap-2 my-3" },
+      recurringPlan.items.length > 0 && h("button", { onClick: onAddRecurring, style: { background: C.accent, color: "#fff" }, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5" },
+        h(Icon, { name: "repeat", size: 15, color: "#fff" }), " Add ", recurringPlan.items.length, " recurring bill", recurringPlan.items.length === 1 ? "" : "s", " from ", monthLabel(recurringPlan.src, "tiny")),
+      h("label", { htmlFor: "file-ex", style: btn, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5 cursor-pointer" },
+        h(Icon, { name: "upload", size: 15 }), " Upload"),
+      h("input", { id: "file-ex", type: "file", accept: ".csv,.xlsx,.xls", className: "hidden", onChange: e => { onUpload(e.target.files[0]); e.target.value = ""; } }),
+      h("button", { onClick: onTemplate, style: { ...btn, color: C.sub }, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5" },
+        h(Icon, { name: "download", size: 15, color: C.sub }), " Template"),
+      items.length > 0 && h("button", { onClick: onExport, style: { ...btn, color: C.sub }, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5" },
+        h(Icon, { name: "download", size: 15, color: C.sub }), " Export month"),
+      h("div", { className: "ml-auto text-sm", style: { color: C.sub } }, "Total: ", h("span", { className: "font-mono font-semibold", style: { color: C.ink } }, money(total)))),
+    present.length > 1 && h("div", { className: "flex gap-1 overflow-x-auto pb-2 mb-1" },
+      [{ id: "all", label: "All" }, ...present].map(c => h("button", {
+        key: c.id, onClick: () => setFilter(c.id),
+        style: { background: filter === c.id ? C.soft : "transparent", color: filter === c.id ? C.ink : C.sub, border: `1px solid ${filter === c.id ? C.accent : C.line}` },
+        className: "px-2.5 py-1 rounded-full text-xs whitespace-nowrap"
+      }, c.label))),
+    shown.length === 0
+      ? h("div", { style: { background: C.card, border: `1px dashed ${C.line}`, color: C.sub }, className: "rounded-2xl p-8 text-center text-sm" },
+          "No expenses in " + monthLabel(month) + " yet. Use the form above, or upload a sheet.")
+      : h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl overflow-hidden" },
+          shown.map((e, i) => h(ExpenseRow, { key: e.id, e, first: i === 0, onUpdate, onRemove }))));
+}
+function QuickAdd({ month, onAdd }) {
+  const defDate = () => month === thisMonth() ? today() : month + "-01";
+  const [f, setF] = useState({ date: defDate(), category: "groceries", note: "", amount: "", recurring: false });
+  useEffect(() => { setF(x => ({ ...x, date: (x.date || "").slice(0, 7) === month ? x.date : defDate() })); }, [month]);
+  const set = k => ev => {
+    const v = ev.target.type === "checkbox" ? ev.target.checked : ev.target.value;
+    setF(x => {
+      const n = { ...x, [k]: v };
+      // Typing "netflix" or "petrol" picks the category for you, until you choose one yourself.
+      if (k === "note" && !x.catTouched) { const g = guessCat(v); if (g !== "other") n.category = g; }
+      if (k === "category") n.catTouched = true;
+      return n;
+    });
+  };
+  const submit = () => {
+    if (!(num(f.amount) > 0)) return;
+    onAdd({ date: f.date || defDate(), category: f.category, note: f.note.trim(), amount: f.amount, recurring: f.recurring });
+    setF(x => ({ ...x, note: "", amount: "", recurring: false, catTouched: false }));
+  };
+  const onKey = ev => { if (ev.key === "Enter") submit(); };
+  return h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl p-3.5" },
+    h("div", { className: "serif text-lg leading-tight mb-2" }, "Add an expense"),
+    h("div", { className: "grid grid-cols-2 sm:grid-cols-12 gap-2 items-end" },
+      h("div", { className: "sm:col-span-2" }, h(Field, { label: "Date" }, h("input", { type: "date", value: f.date, onChange: set("date"), className: "fld" }))),
+      h("div", { className: "sm:col-span-3" }, h(Field, { label: "Category" }, h(CatSelect, { value: f.category, onChange: set("category") }))),
+      h("div", { className: "col-span-2 sm:col-span-3" }, h(Field, { label: "Description" }, h("input", { value: f.note, onChange: set("note"), onKeyDown: onKey, placeholder: "e.g. Netflix, weekly shop", className: "fld" }))),
+      h("div", { className: "sm:col-span-2" }, h(Field, { label: "Amount (" + CUR.trim() + ")" }, h("input", { inputMode: "decimal", value: f.amount, onChange: set("amount"), onKeyDown: onKey, placeholder: "0.00", className: "fld font-mono" }))),
+      h("div", { className: "sm:col-span-2 flex items-center gap-2" },
+        h("label", { className: "inline-flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap", style: { color: C.sub }, title: "Repeats every month (rent, WiFi, Netflix…)" },
+          h("input", { type: "checkbox", checked: f.recurring, onChange: set("recurring") }), " Monthly"),
+        h("button", { onClick: submit, disabled: !(num(f.amount) > 0), style: { background: num(f.amount) > 0 ? C.ink : C.line, color: "#fff" }, className: "flex-1 px-3 py-[7px] rounded-lg text-sm inline-flex items-center justify-center gap-1" },
+          h(Icon, { name: "plus", size: 14, color: "#fff" }), " Add"))));
+}
+function ExpenseRow({ e, first, onUpdate, onRemove }) {
+  const up = f => ev => onUpdate(e.id, f, ev.target.type === "checkbox" ? ev.target.checked : ev.target.value);
+  const c = CAT[e.category] || CAT.other;
+  return h("div", { className: "px-3 py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-2", style: { borderTop: first ? "none" : `1px solid ${C.line}` } },
+    h(CatChip, { c }),
+    h("input", { value: e.note, onChange: up("note"), placeholder: c.label, className: "flex-1 min-w-[8rem] text-sm font-medium bg-transparent outline-none", style: { color: C.ink } }),
+    h("div", { className: "w-36" }, h(CatSelect, { value: e.category, onChange: up("category") })),
+    h("input", { type: "date", value: e.date, onChange: up("date"), className: "fld", style: { width: 140 } }),
+    h("input", { inputMode: "decimal", value: e.amount, onChange: up("amount"), className: "fld font-mono text-right", style: { width: 100 } }),
+    h("button", { onClick: () => onUpdate(e.id, "recurring", !e.recurring), title: e.recurring ? "Monthly — click to make one-off" : "One-off — click to make monthly", className: "p-1 shrink-0" },
+      h(Icon, { name: "repeat", size: 16, color: e.recurring ? C.accent : C.line })),
+    h("button", { onClick: () => onRemove(e.id), className: "p-1 shrink-0", title: "Delete" },
+      h(Icon, { name: "trash", size: 16, color: C.danger })));
+}
+
+/* ---------- Budgets ---------- */
+function BudgetsTab({ month, byMonth, budgets, budgetTotal, currency, onBudget, onCurrency }) {
+  const last3 = [1, 2, 3].map(k => byMonth[shiftMonth(month, -k)]).filter(Boolean);
+  const avgOf = id => last3.length ? last3.reduce((s, m) => s + (m.cats[id] || 0), 0) / last3.length : 0;
+  const fillFromAvg = () => CATS.forEach(c => { const a = avgOf(c.id); if (a > 0) onBudget(c.id, String(Math.ceil(a))); });
+  return h("div", { className: "space-y-3" },
+    h(Panel, { title: "Monthly budgets", note: "How much you plan to spend in each category per month. Leave blank for no limit." },
+      CATS.map(c => {
+        const a = avgOf(c.id);
+        return h("div", { key: c.id, className: "py-2.5 flex items-center gap-3", style: { borderTop: `1px solid ${C.line}` } },
+          h(CatChip, { c }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { className: "text-sm font-medium" }, c.label, c.hint && h("span", { className: "text-xs font-normal", style: { color: C.sub } }, " · ", c.hint)),
+            h("div", { className: "text-xs mt-0.5", style: { color: C.sub } }, a > 0 ? "avg last " + last3.length + " mo: " + money(a) : "no recent spending")),
+          h("div", { style: { width: 130 } },
+            h("input", { inputMode: "decimal", value: budgets[c.id] ?? "", onChange: ev => onBudget(c.id, ev.target.value), placeholder: "no limit", className: "fld font-mono text-right" })));
+      }),
+      h("div", { className: "pt-3 mt-1 flex flex-wrap items-center justify-between gap-2", style: { borderTop: `1px solid ${C.line}` } },
+        last3.length > 0
+          ? h("button", { onClick: fillFromAvg, style: { border: `1px solid ${C.line}`, background: C.card, color: C.sub }, className: "px-3 py-1.5 rounded-full text-xs" }, "Fill from recent averages")
+          : h("span"),
+        h("div", { className: "text-sm" }, h("span", { style: { color: C.sub } }, "Total monthly budget "), h("span", { className: "font-mono font-semibold" }, money(budgetTotal))))),
+    h(Panel, { title: "Currency", note: "Only changes the symbol shown — amounts are not converted." },
+      h("div", { className: "flex flex-wrap gap-1.5" },
+        CURRENCIES.map(s => h("button", {
+          key: s, onClick: () => onCurrency(s),
+          style: { background: currency === s ? C.ink : "transparent", color: currency === s ? "#fff" : C.ink, border: `1px solid ${currency === s ? C.ink : C.line}` },
+          className: "px-3 py-1.5 rounded-full text-sm font-mono min-w-[2.75rem]"
+        }, s.trim())))));
+}
+
+/* ---------- shared ---------- */
+function CatChip({ c }) {
+  return h("div", { title: c.label, style: { background: c.color + "1F", border: `1px solid ${c.color}40` }, className: "h-8 w-8 rounded-full flex items-center justify-center shrink-0" },
+    h(Icon, { name: c.icon, size: 15, color: c.color }));
+}
+function CatSelect({ value, onChange }) {
+  return h("select", { value, onChange, className: "fld" }, CATS.map(c => h("option", { key: c.id, value: c.id }, c.label)));
+}
+function Kpi({ color, icon, label, value, sub }) {
+  return h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl p-4" },
+    h("div", { className: "flex items-center gap-2" },
+      h(Icon, { name: icon, size: 16, color }),
+      h("span", { className: "text-xs font-medium", style: { color: C.sub } }, label)),
+    h("div", { className: "mt-1.5 font-mono font-semibold text-2xl", style: { color } }, value),
+    h("div", { className: "text-xs mt-0.5", style: { color: C.sub } }, sub));
+}
+function Panel({ title, note, children }) {
+  return h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl p-4" },
+    h("div", { className: "serif text-lg leading-tight" }, title),
+    note && h("div", { className: "text-xs mt-0.5 mb-3", style: { color: C.sub } }, note),
+    children);
+}
+function Field({ label, children }) {
+  return h("label", { className: "block" },
+    h("span", { className: "text-xs", style: { color: C.sub } }, label),
+    h("div", { className: "mt-0.5" }, children));
+}
+function Muted({ children }) {
+  return h("div", { className: "text-sm py-6 text-center", style: { color: C.sub } }, children);
+}
+class ErrBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { e: null }; }
+  static getDerivedStateFromError(e) { return { e }; }
+  render() {
+    if (this.state.e) {
+      return h("div", { style: { padding: 24, maxWidth: 640, margin: "40px auto", color: C.ink, fontFamily: "ui-sans-serif, system-ui" } },
+        h("div", { style: { fontWeight: 600, color: C.danger, marginBottom: 8 } }, "The app hit an error."),
+        h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 13 } }, String(this.state.e && this.state.e.message || this.state.e)));
+    }
+    return this.props.children;
+  }
+}
+ReactDOM.createRoot(document.getElementById("root")).render(h(ErrBoundary, null, h(App)));
+</script>
+</body>
+</html>
