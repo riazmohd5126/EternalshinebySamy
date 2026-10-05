@@ -1,9 +1,9 @@
 {
-  "name": "eternalshine-by-samy",
+  "name": "master-dashboard",
   "version": "1.0.0",
-  "description": "EternalShine by Samy — moissanite sales & profit dashboard",
+  "description": "Master Dashboard — EternalShine, Monthly Expenses, Universal Pharmacy and Turo in one app",
   "main": "main.js",
-  "author": "EternalShine by Samy",
+  "author": "Riaz",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --mac"
@@ -13,9 +13,9 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.eternalshinebysamy.dashboard",
-    "productName": "EternalShine by Samy",
-    "files": ["main.js", "samy-sparkle.html", "icon.png"],
+    "appId": "com.riaz.masterdashboard",
+    "productName": "Master Dashboard",
+    "files": ["main.js", "home.html", "icon.png", "apps/**/*"],
     "mac": {
       "target": ["dir"],
       "icon": "icon.png",

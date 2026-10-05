@@ -236,7 +236,7 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/data", {
+        const r = await fetch("api/data", {
           cache: "no-store"
         });
         if (r.ok) {
@@ -268,7 +268,7 @@ function App() {
       if (serverMode) {
         try {
           setStatus("Saving…");
-          const r = await fetch("/api/data", {
+          const r = await fetch("api/data", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -286,7 +286,7 @@ function App() {
   const reload = async () => {
     if (serverMode) {
       try {
-        const r = await fetch("/api/data", {
+        const r = await fetch("api/data", {
           cache: "no-store"
         });
         if (r.ok) {

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Master Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  /* Layout: fixed left rail of apps; the right pane is either the Home summary or one app's page. */
+  :root {
+    --paper: #F4F5F2; --card: #FFFFFF; --ink: #22303C; --sub: #7A837E; --line: #E2E5DF;
+    --rail: #1F2A33; --rail-ink: #C9D2D6; --rail-sub: #7F8C93; --rail-hi: #2C3A45;
+    --good: #2E7D6B; --bad: #C0563F; --india: #D9731E;
+    --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: var(--sans); background: var(--paper); color: var(--ink); color-scheme: light; }
+  .shell { display: flex; height: 100%; }
+  .rail { width: 236px; flex: none; background: var(--rail); color: var(--rail-ink); display: flex; flex-direction: column; padding: 18px 12px; gap: 4px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
+  .brand img { width: 34px; height: 34px; border-radius: 9px; }
+  .brand b { font-family: var(--serif); font-size: 22px; color: #fff; font-weight: 700; line-height: 1; }
+  .brand span { display: block; font-size: 11px; color: var(--rail-sub); margin-top: 3px; }
+  .navlbl { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--rail-sub); padding: 14px 10px 6px; }
+  .nav { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: transparent; color: inherit; font: inherit; font-size: 14px; text-align: left; padding: 9px 10px; border-radius: 9px; cursor: pointer; }
+  .nav:hover { background: var(--rail-hi); }
+  .nav[aria-current="true"] { background: var(--rail-hi); color: #fff; }
+  .nav:focus-visible { outline: 2px solid #8FB3C9; outline-offset: 1px; }
+  .dot { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; flex: none; }
+  .nav .soon { margin-left: auto; font-size: 10px; color: var(--rail-sub); border: 1px solid #3A4954; border-radius: 99px; padding: 1px 7px; }
+  .rail .foot { margin-top: auto; font-size: 11px; color: var(--rail-sub); padding: 8px 10px; line-height: 1.5; }
+  .pane { flex: 1; min-width: 0; position: relative; }
+  .view { position: absolute; inset: 0; overflow: auto; }
+  .view iframe { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+
+  .home { max-width: 1080px; margin: 0 auto; padding: 28px 28px 40px; }
+  .hello { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .hello h1 { font-family: var(--serif); font-size: 34px; margin: 0; font-weight: 700; text-wrap: balance; }
+  .hello .date { color: var(--sub); font-size: 13px; }
+  .strip { margin-top: 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+  .stat .k { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
+  .stat .k i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .stat .v { font-family: var(--mono); font-weight: 650; font-size: 22px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .stat .s { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  h2 { font-family: var(--serif); font-size: 22px; margin: 30px 0 10px; font-weight: 700; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+  .app { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .app.off { background: transparent; border-style: dashed; }
+  .app header { display: flex; align-items: center; gap: 12px; }
+  .app header .dot { width: 40px; height: 40px; border-radius: 11px; }
+  .app header b { font-size: 16px; display: block; }
+  .app header span { font-size: 12px; color: var(--sub); }
+  .nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .nums div { min-width: 0; }
+  .nums .l { font-size: 11px; color: var(--sub); }
+  .nums .n { font-family: var(--mono); font-weight: 650; font-size: 16px; margin-top: 3px; font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .app footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+  .path { font-size: 11px; color: var(--sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .open { border: 0; border-radius: 99px; padding: 8px 14px; font: inherit; font-size: 13px; color: #fff; cursor: pointer; flex: none; }
+  .open:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .note { font-size: 13px; color: var(--sub); line-height: 1.5; }
+  .pos { color: var(--good); } .neg { color: var(--bad); } .ind { color: var(--india); }
+
+  @media (max-width: 760px) {
+    .shell { flex-direction: column; }
+    .rail { width: auto; flex-direction: row; flex-wrap: wrap; padding: 10px 16px; align-items: center; }
+    .brand { padding: 0 8px 0 0; } .brand span, .navlbl, .rail .foot, .nav .soon { display: none; }
+    .nav { width: auto; padding: 7px 9px; }
+    .home { padding: 20px 16px 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" id="rail">
+    <div class="brand"><img src="icon.png" alt=""><div><b>Master</b><span>All your apps, one place</span></div></div>
+    <button class="nav" data-go="home" aria-current="true"><span class="dot" style="background:#2C3A45"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>Home</button>
+    <div class="navlbl">Apps</div>
+    <div id="navApps"></div>
+    <div class="foot">Each app keeps its own data file in Documents.</div>
+  </nav>
+  <main class="pane" id="pane">
+    <section class="view" id="view-home"><div class="home" id="home"></div></section>
+  </main>
+</div>
+
+<script>
+/* ---- the apps. "ready: false" shows a placeholder until the app's page is added under apps/<id>/ ---- */
+const APPS = [
+  { id: "eternalshine", name: "EternalShine by Samy", blurb: "Moissanite sales & profit", color: "#B76E79", ready: true,
+    icon: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M2 9h20"/>', storageKey: "samy-sparkle-dashboard-v1" },
+  { id: "expenses", name: "Monthly Expenses", blurb: "Household bills & transfers to India", color: "#3F6E8C", ready: true,
+    icon: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>', storageKey: "monthly-expenses-v1" },
+  { id: "pharmacy", name: "Universal Pharmacy", blurb: "Pharmacy business", color: "#2E8B6E", ready: false,
+    icon: '<path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/>' },
+  { id: "turo", name: "Turo", blurb: "Car-sharing rentals", color: "#6A4FC9", ready: false,
+    icon: '<path d="M5 17h14l-1.5-6.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5Z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>' }
+];
+const svg = (paths, size = 15, color = "#fff") => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+
+/* ---- helpers ---- */
+const num = v => { const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, "")); return isFinite(n) ? n : 0; };
+const fmt = (n, d = 0) => (n < 0 ? "−" : "") + new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }).format(Math.abs(n));
+const pad = n => String(n).padStart(2, "0");
+const now = new Date();
+const THIS_MONTH = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+const MONTH_NAME = now.toLocaleString("en-US", { month: "long" });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* Read one app's own database: the app's file via the local server, or (no server) that app's browser copy. */
+async function loadData(a) {
+  try {
+    const r = await fetch("apps/" + a.id + "/api/data", { cache: "no-store" });
+    if (r.ok) return await r.json();
+  } catch (e) {}
+  try { const raw = localStorage.getItem(a.storageKey); if (raw) return JSON.parse(raw); } catch (e) {}
+  return null;
+}
+let paths = {};
+async function loadPaths() {
+  try { const r = await fetch("api/modules", { cache: "no-store" }); if (r.ok) (await r.json()).forEach(m => paths[m.id] = m.dataFile); } catch (e) {}
+}
+
+/* ---- per-app summaries (same maths as inside each app) ---- */
+function sumEternal(d) {
+  const ps = d?.purchases || [], ev = d?.events || [];
+  const qty = ps.reduce((s, p) => s + num(p.qty ?? p.units), 0), cost = ps.reduce((s, p) => s + num(p.price ?? p.cost), 0);
+  let rev = 0, fees = 0, sold = 0, monthNet = 0, monthRev = 0;
+  ev.forEach(e => {
+    const r = num(e.revenue), f = num(e.fees), u = num(e.units);
+    rev += r; fees += f; sold += u;
+    if ((e.date || "").slice(0, 7) === THIS_MONTH) { monthRev += r; monthNet += r - f - u * num(e.cost); }
+  });
+  return { rev, net: rev - fees - cost, stock: qty - sold, monthRev, monthNet, events: ev.length };
+}
+function sumExpenses(d) {
+  const ex = d?.expenses || [];
+  let spent = 0, india = 0, indiaYear = 0;
+  ex.forEach(e => {
+    const a = num(e.amount), m = (e.date || "").slice(0, 7);
+    if (e.category === "india") {
+      if (m === THIS_MONTH) india += a;
+      if (m.slice(0, 4) === THIS_MONTH.slice(0, 4) && m <= THIS_MONTH) indiaYear += a;
+    } else if (m === THIS_MONTH) spent += a;
+  });
+  return { spent, india, indiaYear, total: spent + india, count: ex.length };
+}
+
+async function renderHome() {
+  const [es, ex] = await Promise.all([loadData(APPS[0]), loadData(APPS[1])]);
+  const E = sumEternal(es), X = sumExpenses(ex);
+  const hour = now.getHours();
+  const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const stat = (color, k, v, s, cls = "") => `<div class="stat"><div class="k"><i style="background:${color}"></i>${k}</div><div class="v ${cls}">${v}</div><div class="s">${s}</div></div>`;
+  const num3 = items => `<div class="nums">${items.map(([l, n, c]) => `<div><div class="l">${l}</div><div class="n ${c || ""}">${n}</div></div>`).join("")}</div>`;
+  const card = (a, body, sub) => `<article class="app${a.ready ? "" : " off"}">
+      <header><span class="dot" style="background:${a.color}">${svg(a.icon, 19)}</span><div><b>${esc(a.name)}</b><span>${esc(sub || a.blurb)}</span></div></header>
+      ${body}
+      <footer><span class="path" title="${esc(paths[a.id] || "")}">${a.ready ? esc(paths[a.id] ? "Data: " + paths[a.id].replace(/^.*?(Documents)/, "~/$1") : "Own data, separate from the other apps") : ""}</span>
+      ${a.ready ? `<button class="open" style="background:${a.color}" data-go="${a.id}">Open</button>` : ""}</footer></article>`;
+
+  document.getElementById("home").innerHTML = `
+    <div class="hello"><h1>${hello}, Riaz</h1><span class="date">${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span></div>
+    <div class="strip">
+      ${stat(APPS[0].color, "EternalShine profit · " + MONTH_NAME, fmt(E.monthNet, 2), fmt(E.monthRev) + " in sales this month", E.monthNet >= 0 ? "pos" : "neg")}
+      ${stat(APPS[1].color, "Household spent · " + MONTH_NAME, fmt(X.spent, 2), "rent, bills, groceries and more")}
+      ${stat("var(--india)", "Sent to India · " + MONTH_NAME, fmt(X.india, 2), fmt(X.indiaYear) + " so far in " + now.getFullYear(), "ind")}
+      ${stat(APPS[2].color, "Universal Pharmacy", "—", "not connected yet")}
+      ${stat(APPS[3].color, "Turo", "—", "not connected yet")}
+    </div>
+    <h2>Your apps</h2>
+    <div class="grid">
+      ${card(APPS[0], num3([["Total revenue", fmt(E.rev)], ["Net profit", fmt(E.net), E.net >= 0 ? "pos" : "neg"], ["Rings in stock", fmt(E.stock)]]), E.events ? E.events + " selling events logged" : "")}
+      ${card(APPS[1], num3([["Spent in " + MONTH_NAME.slice(0, 3), fmt(X.spent)], ["Sent to India", fmt(X.india), "ind"], ["Total out", fmt(X.total)]]))}
+      ${card(APPS[2], `<p class="note">This slot is ready. Once the Universal Pharmacy app is added it opens here, with its own separate database.</p>`)}
+      ${card(APPS[3], `<p class="note">This slot is ready. Once the Turo app is added it opens here, with its own separate database.</p>`)}
+    </div>`;
+}
+
+/* ---- navigation: each app loads once in its own frame and stays open while you switch ---- */
+const pane = document.getElementById("pane");
+function go(id) {
+  let a = APPS.find(x => x.id === id);
+  if (!(a && a.ready)) id = "home";
+  document.querySelectorAll("[data-go]").forEach(b => b.classList.contains("nav") && b.setAttribute("aria-current", b.dataset.go === id ? "true" : "false"));
+  let view = document.getElementById("view-" + id);
+  if (!view) {
+    view = document.createElement("section");
+    view.className = "view"; view.id = "view-" + id;
+    view.innerHTML = `<iframe title="${esc(a.name)}" src="apps/${a.id}/index.html"></iframe>`;
+    pane.appendChild(view);
+  }
+  pane.querySelectorAll(".view").forEach(v => v.hidden = v !== view);
+  if (id === "home") renderHome();
+  try { history.replaceState(null, "", "#" + id); } catch (e) {}
+}
+document.getElementById("navApps").innerHTML = APPS.map(a =>
+  `<button class="nav" data-go="${a.id}" ${a.ready ? "" : 'aria-disabled="true" title="Not added yet"'} style="${a.ready ? "" : "opacity:.6;cursor:default"}">
+     <span class="dot" style="background:${a.color}">${svg(a.icon)}</span>${esc(a.name)}${a.ready ? "" : '<span class="soon">soon</span>'}</button>`).join("");
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-go]");
+  if (!b || b.getAttribute("aria-disabled") === "true") return;
+  go(b.dataset.go);
+});
+
+loadPaths().then(() => go((location.hash || "").slice(1) || "home"));
+</script>
+</body>
+</html>

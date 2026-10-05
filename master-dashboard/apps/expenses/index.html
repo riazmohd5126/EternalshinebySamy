@@ -211,7 +211,7 @@ function App() {
   useEffect(() => {
     (async () => {
       try {
-        const r = await fetch("/api/data", { cache: "no-store" });
+        const r = await fetch("api/data", { cache: "no-store" });
         if (r.ok) {
           applyData(await r.json());
           setServerMode(true);
@@ -236,7 +236,7 @@ function App() {
       if (serverMode) {
         try {
           setStatus("Saving…");
-          const r = await fetch("/api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
+          const r = await fetch("api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload });
           setStatus(r.ok ? "Saved to file" : "Save failed — browser copy kept");
         } catch (e) {
           setStatus("Save failed — browser copy kept");
@@ -248,7 +248,7 @@ function App() {
   const reload = async () => {
     if (serverMode) {
       try {
-        const r = await fetch("/api/data", { cache: "no-store" });
+        const r = await fetch("api/data", { cache: "no-store" });
         if (r.ok) { applyData(await r.json()); setStatus("Reloaded from file"); return; }
       } catch (e) {}
     }
