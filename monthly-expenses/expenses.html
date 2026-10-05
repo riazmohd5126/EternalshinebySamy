@@ -47,22 +47,29 @@ const C = {
   good: "#2E7D6B",
   bad: "#C0563F",
   danger: "#9B2C2C",
-  soft: "#EAF0F3"
+  soft: "#EAF0F3",
+  india: "#D9731E",
+  indiaSoft: "#FBEFE3"
 };
 
-/* The fixed spending categories. Order here is the order shown everywhere. */
+/* Spending categories. "fixed" ones are copied forward each month with one click.
+   "india" is money sent home: tracked on its own, never counted as household spending. */
 const CATS = [
-  { id: "rent", label: "Rent", icon: "home", color: "#3F6E8C" },
-  { id: "gas", label: "Gas", icon: "flame", color: "#D08C3C" },
-  { id: "electricity", label: "Electricity", icon: "bolt", color: "#C9A227" },
+  { id: "rent", label: "Rent", icon: "home", color: "#3F6E8C", fixed: true },
+  { id: "gas", label: "Gas", icon: "flame", color: "#D08C3C", fixed: true },
+  { id: "electricity", label: "Electricity", icon: "bolt", color: "#C9A227", fixed: true },
+  { id: "internet", label: "Internet / WiFi", icon: "wifi", color: "#6C63B5", fixed: true },
+  { id: "phone", label: "Phone bill", icon: "phone", color: "#2F8F9D", fixed: true },
+  { id: "fuel", label: "Fuel", icon: "fuel", color: "#8A6A4F", fixed: true },
   { id: "groceries", label: "Groceries", icon: "cart", color: "#4E9A6B" },
-  { id: "internet", label: "Internet / WiFi", icon: "wifi", color: "#6C63B5" },
   { id: "subscriptions", label: "Subscriptions", hint: "Netflix, Prime…", icon: "tv", color: "#C2577A" },
-  { id: "fuel", label: "Fuel", icon: "fuel", color: "#8A6A4F" },
   { id: "other", label: "Other", icon: "dots", color: "#8C949A" }
 ];
-const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
-const CURRENCIES = ["$", "£", "€", "₹", "₨", "AED ", "SAR ", "¥"];
+const INDIA = { id: "india", label: "Transfer to India", icon: "send", color: C.india };
+const ALL_CATS = [...CATS, INDIA];
+const CAT = Object.fromEntries(ALL_CATS.map(c => [c.id, c]));
+const FIXED = CATS.filter(c => c.fixed);
+const isFixed = id => !!(CAT[id] && CAT[id].fixed);
 
 /* icons: [tag, attrs] lists, drawn as 24×24 strokes */
 const I = {
@@ -71,15 +78,17 @@ const I = {
   bolt: [["path", { d: "M13 2 3 14h9l-1 8 10-12h-9l1-8z" }]],
   cart: [["circle", { cx: "9", cy: "21", r: "1" }], ["circle", { cx: "20", cy: "21", r: "1" }], ["path", { d: "M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6" }]],
   wifi: [["path", { d: "M5 12.55a11 11 0 0 1 14.08 0" }], ["path", { d: "M1.42 9a16 16 0 0 1 21.16 0" }], ["path", { d: "M8.53 16.11a6 6 0 0 1 6.95 0" }], ["line", { x1: "12", y1: "20", x2: "12.01", y2: "20" }]],
+  phone: [["rect", { x: "5", y: "2", width: "14", height: "20", rx: "2" }], ["line", { x1: "12", y1: "18", x2: "12.01", y2: "18" }]],
   tv: [["rect", { x: "2", y: "7", width: "20", height: "15", rx: "2" }], ["polyline", { points: "17 2 12 7 7 2" }]],
   fuel: [["path", { d: "M3 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18" }], ["path", { d: "M2 22h14" }], ["path", { d: "M3 10h12" }], ["path", { d: "M15 8h2a2 2 0 0 1 2 2v7a1.5 1.5 0 0 0 3 0V9l-3-3" }]],
   dots: [["circle", { cx: "5", cy: "12", r: "1" }], ["circle", { cx: "12", cy: "12", r: "1" }], ["circle", { cx: "19", cy: "12", r: "1" }]],
+  send: [["path", { d: "M22 2 11 13" }], ["path", { d: "M22 2 15 22 11 13 2 9 22 2z" }]],
   plus: [["line", { x1: "12", y1: "5", x2: "12", y2: "19" }], ["line", { x1: "5", y1: "12", x2: "19", y2: "12" }]],
   trash: [["polyline", { points: "3 6 5 6 21 6" }], ["path", { d: "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" }]],
   upload: [["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }], ["polyline", { points: "17 8 12 3 7 8" }], ["line", { x1: "12", y1: "3", x2: "12", y2: "15" }]],
   download: [["path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }], ["polyline", { points: "7 10 12 15 17 10" }], ["line", { x1: "12", y1: "15", x2: "12", y2: "3" }]],
   refresh: [["path", { d: "M21 12a9 9 0 1 1-3-6.7L21 8" }], ["polyline", { points: "21 3 21 8 16 8" }]],
-  repeat: [["polyline", { points: "17 1 21 5 17 9" }], ["path", { d: "M3 11V9a4 4 0 0 1 4-4h14" }], ["polyline", { points: "7 23 3 19 7 15" }], ["path", { d: "M21 13v2a4 4 0 0 1-4 4H3" }]],
+  copy: [["rect", { x: "9", y: "9", width: "13", height: "13", rx: "2" }], ["path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" }]],
   left: [["polyline", { points: "15 18 9 12 15 6" }]],
   right: [["polyline", { points: "9 18 15 12 9 6" }]],
   wallet: [["path", { d: "M21 12V7H5a2 2 0 0 1 0-4h14v4" }], ["path", { d: "M3 5v14a2 2 0 0 0 2 2h16v-5" }], ["path", { d: "M18 12a2 2 0 0 0 0 4h4v-4Z" }]],
@@ -98,21 +107,20 @@ function Icon({ name, size = 16, color = "currentColor", className, style }) {
 
 /* ---------- helpers ---------- */
 const KEY = "monthly-expenses-v1";
-let CUR = "$"; // currency symbol, set from settings on every render of App
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const num = v => {
   const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, ""));
   return isFinite(n) ? n : 0;
 };
-const money = (n, d = 2) => (n < 0 ? "−" : "") + CUR + new Intl.NumberFormat("en-US", {
+const money = (n, d = 2) => (n < 0 ? "−" : "") + new Intl.NumberFormat("en-US", {
   minimumFractionDigits: d,
   maximumFractionDigits: d
 }).format(Math.abs(isFinite(n) ? n : 0));
 const short = n => {
   const a = Math.abs(n);
-  if (a >= 1e6) return CUR + (n / 1e6).toFixed(1) + "M";
-  if (a >= 1e3) return CUR + (n / 1e3).toFixed(1) + "k";
-  return CUR + Math.round(n);
+  if (a >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (a >= 1e3) return (n / 1e3).toFixed(1) + "k";
+  return String(Math.round(n));
 };
 const pad = n => String(n).padStart(2, "0");
 const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
@@ -152,20 +160,22 @@ const pick = (row, keys) => {
   for (const k of keys) if (low[k] !== undefined && low[k] !== "") return low[k];
   return "";
 };
-/* Map free text ("Netflix", "petrol", "broadband") to a category id. Fuel is checked before gas so "gasoline" lands in fuel. */
+/* Map free text ("Netflix", "petrol", "Airtel") to a category id. Fuel is checked before gas so "gasoline" lands in fuel. */
 const CAT_WORDS = [
+  ["india", ["india", "remit", "transfer", "remitly", "western union", "sent to", "send to", "sent home", "family", "mum", "mom", "dad", "parents", "nre", "nro"]],
   ["fuel", ["fuel", "petrol", "diesel", "gasoline", "cng"]],
   ["subscriptions", ["subscription", "subs", "netflix", "prime", "spotify", "disney", "hulu", "hotstar", "youtube", "apple tv", "hbo"]],
+  ["phone", ["phone", "mobile", "airtel", "jio", "vodafone", "etisalat", "verizon", "t-mobile", "sim"]],
   ["internet", ["internet", "wifi", "wi-fi", "broadband", "fibre", "fiber"]],
   ["electricity", ["electricity", "electric", "power", "energy"]],
   ["gas", ["gas", "heating", "lpg", "cylinder"]],
   ["groceries", ["grocery", "groceries", "grocer", "supermarket", "food", "vegetables"]],
   ["rent", ["rent", "mortgage", "lease"]]
 ];
-const guessCat = (...texts) => {
-  const t = texts.map(x => String(x || "").toLowerCase()).join(" ").trim();
+const guessCat = text => {
+  const t = String(text || "").toLowerCase().trim();
   if (!t) return "other";
-  for (const c of CATS) if (t === c.id || t === c.label.toLowerCase()) return c.id;
+  for (const c of ALL_CATS) if (t === c.id || t === c.label.toLowerCase()) return c.id;
   for (const [id, words] of CAT_WORDS) if (words.some(w => t.includes(w))) return id;
   return "other";
 };
@@ -178,29 +188,28 @@ const dl = (name, text, type = "text/csv") => {
   URL.revokeObjectURL(url);
 };
 const csvCell = v => /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v);
+const sameItem = e => e.category + "|" + String(e.note || "").trim().toLowerCase();
 
 /* =================================================================== */
 function App() {
   const [tab, setTab] = useState("overview");
   const [month, setMonth] = useState(thisMonth());
   const [expenses, setExpenses] = useState([]);
-  const [settings, setSettings] = useState({ currency: "$", budgets: {} });
+  const [plan, setPlan] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [serverMode, setServerMode] = useState(false);
   const [status, setStatus] = useState("…");
-  CUR = settings.currency || "$";
 
   const applyData = d => {
     setExpenses((d.expenses || []).map(e => ({
       id: e.id || uid(),
       date: e.date || "",
-      category: CAT[e.category] ? e.category : guessCat(e.category, e.note),
+      category: CAT[e.category] ? e.category : guessCat(e.category || e.note),
       note: e.note ?? "",
-      amount: e.amount ?? "",
-      recurring: !!e.recurring
+      amount: e.amount ?? ""
     })));
-    const s = d.settings || {};
-    setSettings({ currency: s.currency || "$", budgets: s.budgets || {} });
+    // "plan" was called "budgets" in the first version of the file.
+    setPlan(d.plan || (d.settings && d.settings.budgets) || {});
   };
   useEffect(() => {
     (async () => {
@@ -224,7 +233,7 @@ function App() {
   }, []);
   useEffect(() => {
     if (!loaded) return;
-    const payload = JSON.stringify({ expenses, settings });
+    const payload = JSON.stringify({ expenses, plan });
     const t = setTimeout(async () => {
       try { localStorage.setItem(KEY, payload); } catch (e) {}
       if (serverMode) {
@@ -238,7 +247,7 @@ function App() {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [expenses, settings, loaded, serverMode]);
+  }, [expenses, plan, loaded, serverMode]);
   const reload = async () => {
     if (serverMode) {
       try {
@@ -256,49 +265,58 @@ function App() {
   const addExpense = e => setExpenses(a => [{ id: uid(), ...e }, ...a]);
   const updateExpense = (id, f, v) => setExpenses(a => a.map(x => x.id === id ? { ...x, [f]: v } : x));
   const removeExpense = id => setExpenses(a => a.filter(x => x.id !== id));
-  const setBudget = (cat, v) => setSettings(s => ({ ...s, budgets: { ...s.budgets, [cat]: v } }));
-  const setCurrency = v => setSettings(s => ({ ...s, currency: v }));
+  const setPlanFor = (cat, v) => setPlan(p => ({ ...p, [cat]: v }));
 
-  /* ---- totals per month ---- */
+  /* ---- totals per month: household spending (fixed + other) kept apart from India transfers ---- */
   const byMonth = useMemo(() => {
     const map = {};
     expenses.forEach(e => {
       const m = (e.date || "").slice(0, 7);
       if (!m) return;
-      if (!map[m]) map[m] = { total: 0, count: 0, cats: {} };
+      if (!map[m]) map[m] = { total: 0, fixed: 0, india: 0, count: 0, cats: {} };
       const a = num(e.amount);
-      map[m].total += a;
-      map[m].count++;
-      map[m].cats[e.category] = (map[m].cats[e.category] || 0) + a;
+      if (e.category === "india") {
+        map[m].india += a;
+      } else {
+        map[m].total += a;
+        map[m].count++;
+        if (isFixed(e.category)) map[m].fixed += a;
+        map[m].cats[e.category] = (map[m].cats[e.category] || 0) + a;
+      }
     });
     return map;
   }, [expenses]);
-  const empty = { total: 0, count: 0, cats: {} };
+  const empty = { total: 0, fixed: 0, india: 0, count: 0, cats: {} };
   const cur = byMonth[month] || empty;
   const prev = byMonth[shiftMonth(month, -1)] || empty;
-  const budgetTotal = CATS.reduce((s, c) => s + num(settings.budgets[c.id]), 0);
+  const planTotal = CATS.reduce((s, c) => s + num(plan[c.id]), 0);
   const monthExpenses = useMemo(() => expenses
     .filter(e => (e.date || "").slice(0, 7) === month)
     .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), [expenses, month]);
+  const indiaYear = useMemo(() => expenses
+    .filter(e => e.category === "india" && (e.date || "").slice(0, 4) === month.slice(0, 4) && (e.date || "").slice(0, 7) <= month)
+    .reduce((s, e) => s + num(e.amount), 0), [expenses, month]);
 
-  /* Recurring bills: copy the most recent earlier month's recurring entries into this month, skipping ones already here. */
-  const recurringPlan = useMemo(() => {
+  /* Fixed bills (rent, gas, electricity, WiFi, phone, fuel): copy the most recent earlier month's entries
+     into this month, same day and amount, skipping any already here. Amounts can be edited afterwards. */
+  const copyPlan = useMemo(() => {
     for (let k = 1; k <= 12; k++) {
       const src = shiftMonth(month, -k);
-      const items = expenses.filter(e => e.recurring && (e.date || "").slice(0, 7) === src);
+      const items = expenses.filter(e => isFixed(e.category) && (e.date || "").slice(0, 7) === src);
       if (!items.length) continue;
-      const have = new Set(monthExpenses.map(e => e.category + "|" + String(e.note).trim().toLowerCase()));
-      const todo = items.filter(e => !have.has(e.category + "|" + String(e.note).trim().toLowerCase()));
-      return { src, items: todo };
+      const have = new Set(monthExpenses.map(sameItem));
+      return { src, items: items.filter(e => !have.has(sameItem(e))) };
     }
     return { src: null, items: [] };
   }, [expenses, monthExpenses, month]);
-  const addRecurring = () => {
+  const copyFixed = () => {
     const last = daysIn(month);
-    setExpenses(a => [...recurringPlan.items.map(e => ({
-      ...e,
+    setExpenses(a => [...copyPlan.items.map(e => ({
       id: uid(),
-      date: month + "-" + pad(Math.min(last, Number((e.date || "").slice(8, 10)) || 1))
+      date: month + "-" + pad(Math.min(last, Number((e.date || "").slice(8, 10)) || 1)),
+      category: e.category,
+      note: e.note,
+      amount: e.amount
     })), ...a]);
   };
 
@@ -325,28 +343,28 @@ function App() {
         date: normDate(pick(r, ["date", "paid", "paidon", "day"])),
         category: guessCat(rawCat) !== "other" ? guessCat(rawCat) : guessCat(note),
         note,
-        amount: num(pick(r, ["amount", "cost", "price", "total", "spent", "paid"])),
-        recurring: /^(y|yes|true|1|monthly)$/i.test(String(pick(r, ["recurring", "monthly", "repeat", "repeats"])).trim())
+        amount: num(pick(r, ["amount", "cost", "price", "total", "spent", "paid"]))
       };
     }).filter(x => x.amount || x.note);
     if (!mapped.length) return alert("No rows found. Check the template columns.");
     setExpenses(a => [...mapped, ...a]);
-    alert("Imported " + mapped.length + " expense" + (mapped.length === 1 ? "" : "s") + ".");
+    alert("Imported " + mapped.length + " entr" + (mapped.length === 1 ? "y" : "ies") + ".");
   });
   const template = () => dl("expenses-template.csv",
-    "Date,Category,Description,Amount,Recurring\n" +
-    "2026-10-01,Rent,Flat rent,1200,yes\n" +
-    "2026-10-03,Internet / WiFi,Home broadband,45,yes\n" +
-    "2026-10-05,Subscriptions,Netflix,15.49,yes\n" +
-    "2026-10-05,Subscriptions,Amazon Prime,14.99,yes\n" +
-    "2026-10-06,Groceries,Weekly shop,86.40,no\n" +
-    "2026-10-08,Fuel,Petrol,52,no\n" +
-    "2026-10-12,Electricity,Electric bill,74.10,no\n" +
-    "2026-10-12,Gas,Gas bill,38.75,no\n");
+    "Date,Category,Description,Amount\n" +
+    "2026-10-01,Rent,Flat rent,1200\n" +
+    "2026-10-03,Internet / WiFi,Home broadband,45\n" +
+    "2026-10-04,Phone bill,Mobile plan,30\n" +
+    "2026-10-05,Subscriptions,Netflix,15.49\n" +
+    "2026-10-06,Groceries,Weekly shop,86.40\n" +
+    "2026-10-08,Fuel,Petrol,52\n" +
+    "2026-10-12,Electricity,Electric bill,74.10\n" +
+    "2026-10-12,Gas,Gas bill,38.75\n" +
+    "2026-10-15,Transfer to India,Sent to family,500\n");
   const exportMonth = () => dl("expenses-" + month + ".csv",
-    "Date,Category,Description,Amount,Recurring\n" +
-    monthExpenses.slice().reverse().map(e => [e.date, CAT[e.category]?.label || "Other", e.note, num(e.amount).toFixed(2), e.recurring ? "yes" : "no"].map(csvCell).join(",")).join("\n") + "\n");
-  const exportData = () => dl("expenses-backup-" + today() + ".json", JSON.stringify({ expenses, settings }, null, 2), "application/json");
+    "Date,Category,Description,Amount\n" +
+    monthExpenses.slice().reverse().map(e => [e.date, CAT[e.category]?.label || "Other", e.note, num(e.amount).toFixed(2)].map(csvCell).join(",")).join("\n") + "\n");
+  const exportData = () => dl("expenses-backup-" + today() + ".json", JSON.stringify({ expenses, plan }, null, 2), "application/json");
   const importData = file => {
     if (!file) return;
     const r = new FileReader();
@@ -365,15 +383,8 @@ function App() {
 
   if (!loaded) return h("div", { style: { background: C.paper, minHeight: "100vh", color: C.sub }, className: "flex items-center justify-center text-sm" }, "Loading…");
 
-  /* ---- KPI numbers ---- */
-  const nowM = thisMonth();
-  const daysCounted = month === nowM ? new Date().getDate() : month < nowM ? daysIn(month) : 0;
-  // Monthly bills (rent, WiFi…) are paid once, so the daily figure and projection only use day-to-day spending.
-  const billsTotal = expenses.reduce((s, e) => s + (e.recurring && (e.date || "").slice(0, 7) === month ? num(e.amount) : 0), 0);
-  const dailyAvg = daysCounted ? (cur.total - billsTotal) / daysCounted : 0;
   const delta = cur.total - prev.total;
-  const left = budgetTotal - cur.total;
-
+  const left = planTotal - cur.total;
   const hdrBtn = { color: C.sub, border: `1px solid ${C.line}`, background: C.card };
   return h("div", { style: { background: C.paper, color: C.ink, minHeight: "100vh" }, className: "w-full" },
     /* header */
@@ -403,30 +414,33 @@ function App() {
           h("div", { className: "serif text-2xl px-2 min-w-[11rem] text-center" }, monthLabel(month)),
           h("button", { onClick: () => setMonth(shiftMonth(month, 1)), style: hdrBtn, className: "p-1.5 rounded-full", title: "Next month" },
             h(Icon, { name: "right", size: 16, color: C.ink }))),
-        month !== nowM && h("button", { onClick: () => setMonth(nowM), style: hdrBtn, className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1" },
+        month !== thisMonth() && h("button", { onClick: () => setMonth(thisMonth()), style: hdrBtn, className: "text-xs px-2.5 py-1.5 rounded-full inline-flex items-center gap-1" },
           h(Icon, { name: "calendar", size: 13, color: C.sub }), " This month")),
+
+      /* copy fixed bills */
+      copyPlan.items.length > 0 && h(CopyBanner, { month, copyPlan, onCopy: copyFixed }),
 
       /* KPIs */
       h("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" },
-        h(Kpi, { color: C.ink, icon: "wallet", label: "Spent in " + monthLabel(month, "tiny"), value: money(cur.total), sub: cur.count + " expense" + (cur.count === 1 ? "" : "s") }),
-        budgetTotal > 0
-          ? h(Kpi, { color: left >= 0 ? C.good : C.bad, icon: "target", label: left >= 0 ? "Budget left" : "Over budget", value: money(Math.abs(left)), sub: "of " + money(budgetTotal) + " budget" })
-          : h(Kpi, { color: C.sub, icon: "target", label: "Budget left", value: "—", sub: "set a budget in the Budgets tab" }),
-        h(Kpi, { color: delta > 0 ? C.bad : C.good, icon: delta > 0 ? "up" : "down", label: "vs " + monthLabel(shiftMonth(month, -1), "tiny"), value: (delta > 0 ? "+" : delta < 0 ? "−" : "") + money(Math.abs(delta)), sub: prev.total ? (delta > 0 ? "more" : "less") + " than " + money(prev.total) + " (" + Math.round(Math.abs(delta) / prev.total * 100) + "%)" : "nothing logged last month" }),
-        h(Kpi, { color: C.accent, icon: "calendar", label: "Day-to-day / day", value: daysCounted ? money(dailyAvg) : "—", sub: month === nowM && daysCounted ? "month on pace for " + money(billsTotal + dailyAvg * daysIn(month), 0) : daysCounted ? "excl. monthly bills" : "month hasn't started" })),
+        h(Kpi, { color: C.ink, icon: "wallet", label: "Spent in " + monthLabel(month, "tiny"), value: money(cur.total), sub: "fixed bills " + money(cur.fixed, 0) + " · other " + money(cur.total - cur.fixed, 0) }),
+        h(Kpi, { color: C.india, icon: "send", label: "Sent to India", value: money(cur.india), sub: money(indiaYear, 0) + " so far in " + month.slice(0, 4) }),
+        planTotal > 0
+          ? h(Kpi, { color: left >= 0 ? C.good : C.bad, icon: "target", label: left >= 0 ? "Left in plan" : "Over plan", value: money(Math.abs(left)), sub: "of " + money(planTotal) + " planned" })
+          : h(Kpi, { color: C.sub, icon: "target", label: "Left in plan", value: "—", sub: "set limits in Spending Plan" }),
+        h(Kpi, { color: delta > 0 ? C.bad : C.good, icon: delta > 0 ? "up" : "down", label: "vs " + monthLabel(shiftMonth(month, -1), "tiny"), value: (delta > 0 ? "+" : delta < 0 ? "−" : "") + money(Math.abs(delta)), sub: prev.total ? (delta > 0 ? "more" : "less") + " than " + money(prev.total) + " (" + Math.round(Math.abs(delta) / prev.total * 100) + "%)" : "nothing logged last month" })),
 
       /* tabs */
       h("div", { className: "mt-5 flex gap-1 overflow-x-auto pb-1" },
-        [["overview", "Overview"], ["expenses", "Expenses"], ["budgets", "Budgets"]].map(([id, lbl]) => h("button", {
+        [["overview", "Overview"], ["expenses", "Expenses"], ["plan", "Spending Plan"]].map(([id, lbl]) => h("button", {
           key: id, onClick: () => setTab(id),
           style: { background: tab === id ? C.ink : "transparent", color: tab === id ? "#fff" : C.sub, border: `1px solid ${tab === id ? C.ink : C.line}` },
           className: "px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap"
         }, lbl))),
 
       h("div", { className: "mt-4" },
-        tab === "overview" && h(Overview, { month, byMonth, cur, prev, budgets: settings.budgets, budgetTotal, empty: !expenses.length, onPick: setMonth, go: () => setTab("expenses") }),
-        tab === "expenses" && h(ExpensesTab, { month, items: monthExpenses, total: cur.total, recurringPlan, onAddRecurring: addRecurring, onAdd: addExpense, onUpdate: updateExpense, onRemove: removeExpense, onUpload: uploadExpenses, onTemplate: template, onExport: exportMonth }),
-        tab === "budgets" && h(BudgetsTab, { month, byMonth, budgets: settings.budgets, budgetTotal, currency: settings.currency, onBudget: setBudget, onCurrency: setCurrency })),
+        tab === "overview" && h(Overview, { month, byMonth, cur, prev, plan, planTotal, empty: !expenses.length, onPick: setMonth, go: () => setTab("expenses") }),
+        tab === "expenses" && h(ExpensesTab, { month, items: monthExpenses, cur, onAdd: addExpense, onUpdate: updateExpense, onRemove: removeExpense, onUpload: uploadExpenses, onTemplate: template, onExport: exportMonth }),
+        tab === "plan" && h(PlanTab, { month, byMonth, plan, planTotal, onPlan: setPlanFor })),
 
       h("div", { className: "text-xs mt-6 text-center", style: { color: C.sub } },
         serverMode
@@ -434,64 +448,104 @@ function App() {
           : h("span", null, "Running without the local server, so data is in this browser only. Use ", h("b", null, "Backup"), " to keep a copy safe."))));
 }
 
+function CopyBanner({ month, copyPlan, onCopy }) {
+  const total = copyPlan.items.reduce((s, e) => s + num(e.amount), 0);
+  const names = [...new Set(copyPlan.items.map(e => CAT[e.category].label))].join(", ");
+  return h("div", { style: { background: C.soft, border: `1px solid ${C.accent}40` }, className: "rounded-2xl p-3.5 mb-3 flex flex-wrap items-center gap-3" },
+    h(Icon, { name: "copy", size: 18, color: C.accent }),
+    h("div", { className: "flex-1 min-w-[14rem]" },
+      h("div", { className: "text-sm font-medium" }, "Copy ", copyPlan.items.length, " fixed bill", copyPlan.items.length === 1 ? "" : "s", " from ", monthLabel(copyPlan.src), " into ", monthLabel(month, "tiny")),
+      h("div", { className: "text-xs mt-0.5", style: { color: C.sub } }, names, " · ", money(total), " total. You can change any amount after copying.")),
+    h("button", { onClick: onCopy, style: { background: C.accent, color: "#fff" }, className: "px-3.5 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5" },
+      h(Icon, { name: "copy", size: 14, color: "#fff" }), " Copy bills"));
+}
+
 /* ---------- Overview ---------- */
-function Overview({ month, byMonth, cur, prev, budgets, budgetTotal, empty, onPick, go }) {
+function Overview({ month, byMonth, cur, prev, plan, planTotal, empty, onPick, go }) {
   if (empty) return h("div", { style: { background: C.card, border: `1px dashed ${C.line}` }, className: "rounded-2xl p-8 text-center" },
     h(Icon, { name: "wallet", size: 30, color: C.accent, className: "mx-auto" }),
     h("div", { className: "serif text-xl mt-3" }, "Nothing logged yet"),
-    h("div", { className: "text-sm mt-1", style: { color: C.sub } }, "Add your rent, bills, groceries and subscriptions to see where the money goes each month."),
+    h("div", { className: "text-sm mt-1", style: { color: C.sub } }, "Add this month's rent and bills once. Next month, copy them across with one click."),
     h("button", { onClick: go, style: { background: C.accent, color: "#fff" }, className: "mt-4 px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5" },
       h(Icon, { name: "plus", size: 15, color: "#fff" }), " Add an expense"));
 
   const trend = [];
   for (let k = 11; k >= 0; k--) {
     const m = shiftMonth(month, -k);
-    trend.push({ m, ...(byMonth[m] || { total: 0, cats: {} }) });
+    trend.push({ m, ...(byMonth[m] || { total: 0, fixed: 0, india: 0, cats: {} }) });
   }
-  const rows = CATS.map(c => ({ ...c, spent: cur.cats[c.id] || 0, last: prev.cats[c.id] || 0, budget: num(budgets[c.id]) }))
-    .filter(r => r.spent || r.budget || r.last)
+  const rows = CATS.map(c => ({ ...c, spent: cur.cats[c.id] || 0, last: prev.cats[c.id] || 0, limit: num(plan[c.id]) }))
+    .filter(r => r.spent || r.limit || r.last)
     .sort((a, b) => b.spent - a.spent);
   const maxSpent = Math.max(1, ...rows.map(r => r.spent));
-  const withData = trend.filter(t => t.total > 0);
-  const avg = withData.length ? withData.reduce((s, t) => s + t.total, 0) / withData.length : 0;
 
   return h("div", { className: "space-y-3" },
-    h(Panel, { title: "Where it went — " + monthLabel(month), note: budgetTotal ? "Each bar fills toward that category's monthly budget." : "Bars compare categories. Set budgets to track limits." },
+    h(Panel, { title: "Where it went — " + monthLabel(month), note: (planTotal ? "Each bar fills toward that category's monthly limit. " : "") + "Transfers to India are counted separately." },
       cur.total > 0 && h("div", { className: "flex h-3 rounded-full overflow-hidden mb-3", style: { background: C.line } },
         CATS.filter(c => cur.cats[c.id] > 0).map(c => h("div", { key: c.id, title: c.label + " " + money(cur.cats[c.id]), style: { width: (cur.cats[c.id] / cur.total * 100) + "%", background: c.color } }))),
       rows.length === 0 ? h(Muted, null, "No expenses in " + monthLabel(month) + ".") : rows.map(r => {
-        const over = r.budget > 0 && r.spent > r.budget;
-        const fill = r.budget > 0 ? Math.min(1, r.spent / r.budget) : r.spent / maxSpent;
+        const over = r.limit > 0 && r.spent > r.limit;
+        const fill = r.limit > 0 ? Math.min(1, r.spent / r.limit) : r.spent / maxSpent;
         const diff = r.spent - r.last;
         return h("div", { key: r.id, className: "py-2.5", style: { borderTop: `1px solid ${C.line}` } },
           h("div", { className: "flex items-center gap-3" },
             h(CatChip, { c: r }),
             h("div", { className: "flex-1 min-w-0" },
-              h("div", { className: "text-sm font-medium truncate" }, r.label),
+              h("div", { className: "text-sm font-medium truncate" }, r.label, r.fixed && h("span", { className: "ml-1.5 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded", style: { background: C.soft, color: C.accent } }, "fixed")),
               h("div", { className: "text-xs mt-0.5", style: { color: C.sub } },
                 cur.total ? Math.round(r.spent / cur.total * 100) + "% of month" : "—",
                 r.last || r.spent ? h("span", null, " · ", diff === 0 ? "same as last month" : (diff > 0 ? "▲ " : "▼ ") + money(Math.abs(diff)) + " vs last month") : null)),
             h("div", { className: "text-right shrink-0" },
               h("div", { className: "font-mono font-semibold", style: { color: over ? C.bad : C.ink } }, money(r.spent)),
-              r.budget > 0 && h("div", { className: "text-xs", style: { color: over ? C.bad : C.sub } }, over ? "over by " + money(r.spent - r.budget) : money(r.budget - r.spent) + " left"))),
+              r.limit > 0 && h("div", { className: "text-xs", style: { color: over ? C.bad : C.sub } }, over ? "over by " + money(r.spent - r.limit) : money(r.limit - r.spent) + " left"))),
           h("div", { className: "mt-2 h-1.5 rounded-full overflow-hidden ml-11", style: { background: C.line } },
             h("div", { style: { width: (fill * 100) + "%", background: over ? C.bad : r.color, height: "100%" } })));
       })),
-    h(Panel, { title: "Last 12 months", note: "Stacked by category. Click a month to open it." + (budgetTotal ? " Dashed line is your monthly budget." : "") },
-      h(TrendChart, { data: trend, month, budget: budgetTotal, onPick }),
-      avg > 0 && h("div", { className: "mt-3 pt-3 flex items-center justify-between text-sm", style: { borderTop: `1px solid ${C.line}` } },
-        h("span", { style: { color: C.sub } }, "Average month (", withData.length, " with spending)"),
-        h("span", { className: "font-mono font-semibold" }, money(avg)))));
+    h(Panel, { title: "Month by month", note: "Household spending and money sent to India, side by side. Click a month to open it." },
+      h(SummaryTable, { trend, month, onPick })),
+    h(Panel, { title: "Last 12 months", note: "Household spending stacked by category." + (planTotal ? " Dashed line is your monthly plan." : "") },
+      h(TrendChart, { data: trend, month, limit: planTotal, onPick })));
+}
+function SummaryTable({ trend, month, onPick }) {
+  const rows = trend.filter(t => t.total || t.india).reverse();
+  if (!rows.length) return h(Muted, null, "No months with data yet.");
+  const sum = k => rows.reduce((s, r) => s + r[k], 0);
+  const th = "text-xs font-medium py-2 px-2 text-right whitespace-nowrap";
+  const td = "py-2 px-2 text-right font-mono whitespace-nowrap";
+  return h("div", { className: "overflow-x-auto -mx-1" },
+    h("table", { className: "w-full text-sm", style: { fontVariantNumeric: "tabular-nums" } },
+      h("thead", null, h("tr", { style: { color: C.sub } },
+        h("th", { className: th + " text-left" }, "Month"),
+        h("th", { className: th }, "Fixed bills"),
+        h("th", { className: th }, "Other spending"),
+        h("th", { className: th }, "Household total"),
+        h("th", { className: th, style: { color: C.india } }, "Transfers to India"),
+        h("th", { className: th }, "Total out"))),
+      h("tbody", null,
+        rows.map(r => h("tr", { key: r.m, onClick: () => onPick(r.m), className: "cursor-pointer", style: { borderTop: `1px solid ${C.line}`, background: r.m === month ? C.soft : "transparent" } },
+          h("td", { className: "py-2 px-2 whitespace-nowrap", style: { fontWeight: r.m === month ? 600 : 400 } }, monthLabel(r.m, "short")),
+          h("td", { className: td, style: { color: C.sub } }, money(r.fixed)),
+          h("td", { className: td, style: { color: C.sub } }, money(r.total - r.fixed)),
+          h("td", { className: td + " font-semibold" }, money(r.total)),
+          h("td", { className: td + " font-semibold", style: { color: C.india, background: r.m === month ? "transparent" : C.indiaSoft } }, r.india ? money(r.india) : "—"),
+          h("td", { className: td }, money(r.total + r.india))))),
+      h("tfoot", null, h("tr", { style: { borderTop: `2px solid ${C.line}` } },
+        h("td", { className: "py-2 px-2 text-xs", style: { color: C.sub } }, rows.length, " mo total"),
+        h("td", { className: td, style: { color: C.sub } }, money(sum("fixed"), 0)),
+        h("td", { className: td, style: { color: C.sub } }, money(sum("total") - sum("fixed"), 0)),
+        h("td", { className: td + " font-semibold" }, money(sum("total"), 0)),
+        h("td", { className: td + " font-semibold", style: { color: C.india } }, money(sum("india"), 0)),
+        h("td", { className: td + " font-semibold" }, money(sum("total") + sum("india"), 0))))));
 }
 const niceMax = v => {
   const p = Math.pow(10, Math.floor(Math.log10(v)));
   const f = v / p;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
 };
-function TrendChart({ data, month, budget, onPick }) {
+function TrendChart({ data, month, limit, onPick }) {
   const W = 640, H = 240, padL = 50, padR = 12, padT = 14, padB = 30;
   const iw = W - padL - padR, ih = H - padT - padB;
-  const top = niceMax(Math.max(1, budget || 0, ...data.map(d => d.total)));
+  const top = niceMax(Math.max(1, limit || 0, ...data.map(d => d.total)));
   const y = v => padT + ih - v / top * ih;
   const n = data.length, band = iw / n, bw = Math.min(30, band * 0.62);
   const grid = [0, 1, 2, 3, 4].map(i => top * i / 4);
@@ -516,23 +570,27 @@ function TrendChart({ data, month, budget, onPick }) {
           }),
           h("text", { x: x0 + bw / 2, y: H - padB + 16, textAnchor: "middle", fontSize: "10", fill: sel ? C.ink : C.sub, fontWeight: sel ? "700" : "400" }, monthLabel(d.m, "tiny")));
       }),
-      budget > 0 && h("line", { x1: padL, y1: y(budget), x2: W - padR, y2: y(budget), stroke: C.bad, strokeWidth: "1.5", strokeDasharray: "5 4" })),
+      limit > 0 && h("line", { x1: padL, y1: y(limit), x2: W - padR, y2: y(limit), stroke: C.bad, strokeWidth: "1.5", strokeDasharray: "5 4" })),
     h("div", { className: "flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 text-xs", style: { color: C.sub } },
       CATS.map(c => h("span", { key: c.id, className: "inline-flex items-center gap-1" },
         h("span", { style: { background: c.color, width: 10, height: 10, borderRadius: 2, display: "inline-block" } }), " ", c.label))));
 }
 
 /* ---------- Expenses ---------- */
-function ExpensesTab({ month, items, total, recurringPlan, onAddRecurring, onAdd, onUpdate, onRemove, onUpload, onTemplate, onExport }) {
+function ExpensesTab({ month, items, cur, onAdd, onUpdate, onRemove, onUpload, onTemplate, onExport }) {
   const [filter, setFilter] = useState("all");
-  const shown = filter === "all" ? items : items.filter(e => e.category === filter);
-  const present = CATS.filter(c => items.some(e => e.category === c.id));
+  const filters = [
+    { id: "all", label: "All", test: () => true },
+    { id: "fixed", label: "Fixed bills", test: e => isFixed(e.category) },
+    { id: "variable", label: "Other spending", test: e => !isFixed(e.category) && e.category !== "india" },
+    { id: "india", label: "Transfers to India", test: e => e.category === "india" }
+  ];
+  const f = filters.find(x => x.id === filter) || filters[0];
+  const shown = items.filter(f.test);
   const btn = { border: `1px solid ${C.line}`, background: C.card };
   return h("div", null,
     h(QuickAdd, { month, onAdd }),
     h("div", { className: "flex flex-wrap items-center gap-2 my-3" },
-      recurringPlan.items.length > 0 && h("button", { onClick: onAddRecurring, style: { background: C.accent, color: "#fff" }, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5" },
-        h(Icon, { name: "repeat", size: 15, color: "#fff" }), " Add ", recurringPlan.items.length, " recurring bill", recurringPlan.items.length === 1 ? "" : "s", " from ", monthLabel(recurringPlan.src, "tiny")),
       h("label", { htmlFor: "file-ex", style: btn, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5 cursor-pointer" },
         h(Icon, { name: "upload", size: 15 }), " Upload"),
       h("input", { id: "file-ex", type: "file", accept: ".csv,.xlsx,.xls", className: "hidden", onChange: e => { onUpload(e.target.files[0]); e.target.value = ""; } }),
@@ -540,25 +598,27 @@ function ExpensesTab({ month, items, total, recurringPlan, onAddRecurring, onAdd
         h(Icon, { name: "download", size: 15, color: C.sub }), " Template"),
       items.length > 0 && h("button", { onClick: onExport, style: { ...btn, color: C.sub }, className: "px-3 py-1.5 rounded-full text-sm inline-flex items-center gap-1.5" },
         h(Icon, { name: "download", size: 15, color: C.sub }), " Export month"),
-      h("div", { className: "ml-auto text-sm", style: { color: C.sub } }, "Total: ", h("span", { className: "font-mono font-semibold", style: { color: C.ink } }, money(total)))),
-    present.length > 1 && h("div", { className: "flex gap-1 overflow-x-auto pb-2 mb-1" },
-      [{ id: "all", label: "All" }, ...present].map(c => h("button", {
+      h("div", { className: "ml-auto text-sm flex flex-wrap gap-x-3", style: { color: C.sub } },
+        h("span", null, "Spent: ", h("span", { className: "font-mono font-semibold", style: { color: C.ink } }, money(cur.total))),
+        cur.india > 0 && h("span", null, "To India: ", h("span", { className: "font-mono font-semibold", style: { color: C.india } }, money(cur.india))))),
+    items.length > 0 && h("div", { className: "flex gap-1 overflow-x-auto pb-2 mb-1" },
+      filters.map(c => h("button", {
         key: c.id, onClick: () => setFilter(c.id),
         style: { background: filter === c.id ? C.soft : "transparent", color: filter === c.id ? C.ink : C.sub, border: `1px solid ${filter === c.id ? C.accent : C.line}` },
         className: "px-2.5 py-1 rounded-full text-xs whitespace-nowrap"
-      }, c.label))),
+      }, c.label, " · ", items.filter(c.test).length))),
     shown.length === 0
       ? h("div", { style: { background: C.card, border: `1px dashed ${C.line}`, color: C.sub }, className: "rounded-2xl p-8 text-center text-sm" },
-          "No expenses in " + monthLabel(month) + " yet. Use the form above, or upload a sheet.")
+          items.length ? "Nothing in this filter for " + monthLabel(month) + "." : "No entries in " + monthLabel(month) + " yet. Use the form above, or upload a sheet.")
       : h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl overflow-hidden" },
           shown.map((e, i) => h(ExpenseRow, { key: e.id, e, first: i === 0, onUpdate, onRemove }))));
 }
 function QuickAdd({ month, onAdd }) {
   const defDate = () => month === thisMonth() ? today() : month + "-01";
-  const [f, setF] = useState({ date: defDate(), category: "groceries", note: "", amount: "", recurring: false });
+  const [f, setF] = useState({ date: defDate(), category: "groceries", note: "", amount: "" });
   useEffect(() => { setF(x => ({ ...x, date: (x.date || "").slice(0, 7) === month ? x.date : defDate() })); }, [month]);
   const set = k => ev => {
-    const v = ev.target.type === "checkbox" ? ev.target.checked : ev.target.value;
+    const v = ev.target.value;
     setF(x => {
       const n = { ...x, [k]: v };
       // Typing "netflix" or "petrol" picks the category for you, until you choose one yourself.
@@ -569,67 +629,60 @@ function QuickAdd({ month, onAdd }) {
   };
   const submit = () => {
     if (!(num(f.amount) > 0)) return;
-    onAdd({ date: f.date || defDate(), category: f.category, note: f.note.trim(), amount: f.amount, recurring: f.recurring });
-    setF(x => ({ ...x, note: "", amount: "", recurring: false, catTouched: false }));
+    onAdd({ date: f.date || defDate(), category: f.category, note: f.note.trim(), amount: f.amount });
+    setF(x => ({ ...x, note: "", amount: "", catTouched: false }));
   };
   const onKey = ev => { if (ev.key === "Enter") submit(); };
   return h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl p-3.5" },
-    h("div", { className: "serif text-lg leading-tight mb-2" }, "Add an expense"),
+    h("div", { className: "serif text-lg leading-tight mb-2" }, "Add an expense or transfer"),
     h("div", { className: "grid grid-cols-2 sm:grid-cols-12 gap-2 items-end" },
       h("div", { className: "sm:col-span-2" }, h(Field, { label: "Date" }, h("input", { type: "date", value: f.date, onChange: set("date"), className: "fld" }))),
       h("div", { className: "sm:col-span-3" }, h(Field, { label: "Category" }, h(CatSelect, { value: f.category, onChange: set("category") }))),
-      h("div", { className: "col-span-2 sm:col-span-3" }, h(Field, { label: "Description" }, h("input", { value: f.note, onChange: set("note"), onKeyDown: onKey, placeholder: "e.g. Netflix, weekly shop", className: "fld" }))),
-      h("div", { className: "sm:col-span-2" }, h(Field, { label: "Amount (" + CUR.trim() + ")" }, h("input", { inputMode: "decimal", value: f.amount, onChange: set("amount"), onKeyDown: onKey, placeholder: "0.00", className: "fld font-mono" }))),
-      h("div", { className: "sm:col-span-2 flex items-center gap-2" },
-        h("label", { className: "inline-flex items-center gap-1 text-xs cursor-pointer whitespace-nowrap", style: { color: C.sub }, title: "Repeats every month (rent, WiFi, Netflix…)" },
-          h("input", { type: "checkbox", checked: f.recurring, onChange: set("recurring") }), " Monthly"),
-        h("button", { onClick: submit, disabled: !(num(f.amount) > 0), style: { background: num(f.amount) > 0 ? C.ink : C.line, color: "#fff" }, className: "flex-1 px-3 py-[7px] rounded-lg text-sm inline-flex items-center justify-center gap-1" },
+      h("div", { className: "col-span-2 sm:col-span-4" }, h(Field, { label: "Description" }, h("input", { value: f.note, onChange: set("note"), onKeyDown: onKey, placeholder: "e.g. weekly shop, Netflix, sent to Mum", className: "fld" }))),
+      h("div", { className: "sm:col-span-2" }, h(Field, { label: "Amount" }, h("input", { inputMode: "decimal", value: f.amount, onChange: set("amount"), onKeyDown: onKey, placeholder: "0.00", className: "fld font-mono" }))),
+      h("div", { className: "sm:col-span-1" },
+        h("button", { onClick: submit, disabled: !(num(f.amount) > 0), style: { background: num(f.amount) > 0 ? C.ink : C.line, color: "#fff", height: 34 }, className: "w-full px-3 rounded-lg text-sm inline-flex items-center justify-center gap-1" },
           h(Icon, { name: "plus", size: 14, color: "#fff" }), " Add"))));
 }
 function ExpenseRow({ e, first, onUpdate, onRemove }) {
-  const up = f => ev => onUpdate(e.id, f, ev.target.type === "checkbox" ? ev.target.checked : ev.target.value);
+  const up = f => ev => onUpdate(e.id, f, ev.target.value);
   const c = CAT[e.category] || CAT.other;
-  return h("div", { className: "px-3 py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-2", style: { borderTop: first ? "none" : `1px solid ${C.line}` } },
+  return h("div", { className: "px-3 py-2.5 flex flex-wrap sm:flex-nowrap items-center gap-2", style: { borderTop: first ? "none" : `1px solid ${C.line}`, background: e.category === "india" ? C.indiaSoft : "transparent" } },
     h(CatChip, { c }),
     h("input", { value: e.note, onChange: up("note"), placeholder: c.label, className: "flex-1 min-w-[8rem] text-sm font-medium bg-transparent outline-none", style: { color: C.ink } }),
-    h("div", { className: "w-36" }, h(CatSelect, { value: e.category, onChange: up("category") })),
+    h("div", { className: "w-40" }, h(CatSelect, { value: e.category, onChange: up("category") })),
     h("input", { type: "date", value: e.date, onChange: up("date"), className: "fld", style: { width: 140 } }),
     h("input", { inputMode: "decimal", value: e.amount, onChange: up("amount"), className: "fld font-mono text-right", style: { width: 100 } }),
-    h("button", { onClick: () => onUpdate(e.id, "recurring", !e.recurring), title: e.recurring ? "Monthly — click to make one-off" : "One-off — click to make monthly", className: "p-1 shrink-0" },
-      h(Icon, { name: "repeat", size: 16, color: e.recurring ? C.accent : C.line })),
     h("button", { onClick: () => onRemove(e.id), className: "p-1 shrink-0", title: "Delete" },
       h(Icon, { name: "trash", size: 16, color: C.danger })));
 }
 
-/* ---------- Budgets ---------- */
-function BudgetsTab({ month, byMonth, budgets, budgetTotal, currency, onBudget, onCurrency }) {
+/* ---------- Spending Plan ---------- */
+function PlanTab({ month, byMonth, plan, planTotal, onPlan }) {
   const last3 = [1, 2, 3].map(k => byMonth[shiftMonth(month, -k)]).filter(Boolean);
   const avgOf = id => last3.length ? last3.reduce((s, m) => s + (m.cats[id] || 0), 0) / last3.length : 0;
-  const fillFromAvg = () => CATS.forEach(c => { const a = avgOf(c.id); if (a > 0) onBudget(c.id, String(Math.ceil(a))); });
-  return h("div", { className: "space-y-3" },
-    h(Panel, { title: "Monthly budgets", note: "How much you plan to spend in each category per month. Leave blank for no limit." },
-      CATS.map(c => {
-        const a = avgOf(c.id);
-        return h("div", { key: c.id, className: "py-2.5 flex items-center gap-3", style: { borderTop: `1px solid ${C.line}` } },
-          h(CatChip, { c }),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { className: "text-sm font-medium" }, c.label, c.hint && h("span", { className: "text-xs font-normal", style: { color: C.sub } }, " · ", c.hint)),
-            h("div", { className: "text-xs mt-0.5", style: { color: C.sub } }, a > 0 ? "avg last " + last3.length + " mo: " + money(a) : "no recent spending")),
-          h("div", { style: { width: 130 } },
-            h("input", { inputMode: "decimal", value: budgets[c.id] ?? "", onChange: ev => onBudget(c.id, ev.target.value), placeholder: "no limit", className: "fld font-mono text-right" })));
-      }),
-      h("div", { className: "pt-3 mt-1 flex flex-wrap items-center justify-between gap-2", style: { borderTop: `1px solid ${C.line}` } },
-        last3.length > 0
-          ? h("button", { onClick: fillFromAvg, style: { border: `1px solid ${C.line}`, background: C.card, color: C.sub }, className: "px-3 py-1.5 rounded-full text-xs" }, "Fill from recent averages")
-          : h("span"),
-        h("div", { className: "text-sm" }, h("span", { style: { color: C.sub } }, "Total monthly budget "), h("span", { className: "font-mono font-semibold" }, money(budgetTotal))))),
-    h(Panel, { title: "Currency", note: "Only changes the symbol shown — amounts are not converted." },
-      h("div", { className: "flex flex-wrap gap-1.5" },
-        CURRENCIES.map(s => h("button", {
-          key: s, onClick: () => onCurrency(s),
-          style: { background: currency === s ? C.ink : "transparent", color: currency === s ? "#fff" : C.ink, border: `1px solid ${currency === s ? C.ink : C.line}` },
-          className: "px-3 py-1.5 rounded-full text-sm font-mono min-w-[2.75rem]"
-        }, s.trim())))));
+  const fillFromAvg = () => CATS.forEach(c => { const a = avgOf(c.id); if (a > 0) onPlan(c.id, String(Math.ceil(a))); });
+  const group = (title, cats) => [
+    h("div", { key: title, className: "text-[11px] uppercase tracking-wider pt-3 pb-1", style: { color: C.sub } }, title),
+    ...cats.map(c => {
+      const a = avgOf(c.id);
+      return h("div", { key: c.id, className: "py-2.5 flex items-center gap-3", style: { borderTop: `1px solid ${C.line}` } },
+        h(CatChip, { c }),
+        h("div", { className: "flex-1 min-w-0" },
+          h("div", { className: "text-sm font-medium" }, c.label, c.hint && h("span", { className: "text-xs font-normal", style: { color: C.sub } }, " · ", c.hint)),
+          h("div", { className: "text-xs mt-0.5", style: { color: C.sub } }, a > 0 ? "avg last " + last3.length + " mo: " + money(a) : "no recent spending")),
+        h("div", { style: { width: 130 } },
+          h("input", { inputMode: "decimal", value: plan[c.id] ?? "", onChange: ev => onPlan(c.id, ev.target.value), placeholder: "no limit", className: "fld font-mono text-right" })));
+    })
+  ];
+  return h(Panel, { title: "Spending Plan", note: "How much you expect to spend in each category per month. Leave blank for no limit. Transfers to India aren't part of the plan." },
+    group("Fixed bills — copied forward each month", FIXED),
+    group("Other spending — added by hand", CATS.filter(c => !c.fixed)),
+    h("div", { className: "pt-3 mt-1 flex flex-wrap items-center justify-between gap-2", style: { borderTop: `1px solid ${C.line}` } },
+      last3.length > 0
+        ? h("button", { onClick: fillFromAvg, style: { border: `1px solid ${C.line}`, background: C.card, color: C.sub }, className: "px-3 py-1.5 rounded-full text-xs" }, "Fill from recent averages")
+        : h("span"),
+      h("div", { className: "text-sm" }, h("span", { style: { color: C.sub } }, "Planned per month "), h("span", { className: "font-mono font-semibold" }, money(planTotal)))));
 }
 
 /* ---------- shared ---------- */
@@ -638,7 +691,10 @@ function CatChip({ c }) {
     h(Icon, { name: c.icon, size: 15, color: c.color }));
 }
 function CatSelect({ value, onChange }) {
-  return h("select", { value, onChange, className: "fld" }, CATS.map(c => h("option", { key: c.id, value: c.id }, c.label)));
+  return h("select", { value, onChange, className: "fld" },
+    h("optgroup", { label: "Fixed bills" }, FIXED.map(c => h("option", { key: c.id, value: c.id }, c.label))),
+    h("optgroup", { label: "Other spending" }, CATS.filter(c => !c.fixed).map(c => h("option", { key: c.id, value: c.id }, c.label))),
+    h("optgroup", { label: "Money sent home" }, h("option", { value: INDIA.id }, INDIA.label)));
 }
 function Kpi({ color, icon, label, value, sub }) {
   return h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl p-4" },

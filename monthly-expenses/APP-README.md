@@ -6,23 +6,28 @@ to a plain file at **~/Documents/Monthly-Expenses/expenses-data.json** (easy to
 find and back up).
 
 ## What it tracks
-Categories: **Rent · Gas · Electricity · Groceries · Internet / WiFi ·
-Subscriptions (Netflix, Prime…) · Fuel · Other**
+**Fixed bills** (copied forward each month): Rent · Gas · Electricity ·
+Internet / WiFi · Phone bill · Fuel
+**Other spending** (added by hand): Groceries · Subscriptions (Netflix, Prime…) · Other
+**Transfers to India**: kept separate, never counted as household spending.
 
+- **Copy fixed bills** — at the start of a month a banner offers *Copy N fixed
+  bills from <last month>*. One click copies rent, gas, electricity, WiFi, phone
+  and fuel with the same amounts; edit any that changed (gas, electricity…).
+  Everything else you add by hand.
 - **Month switcher** — step back and forth through months; everything follows.
-- **Overview** — spent this month, budget left, change vs last month, day-to-day
-  spend per day and where the month is heading; a per-category breakdown with
-  budget bars; a 12-month stacked chart (click a bar to jump to that month).
-- **Expenses** — quick-add form (type "Netflix" or "petrol" and the category is
-  picked for you), editable list, filter by category, export the month to CSV.
-- **Monthly bills** — tick *Monthly* on rent, WiFi, Netflix etc. Next month a
-  button appears: *Add N recurring bills from <last month>* — one click and
-  they're in.
-- **Budgets** — a monthly limit per category (or fill from your 3-month
-  averages), and a currency symbol ($, £, €, ₹, AED…).
+- **Overview** — spent this month (fixed vs other), sent to India (month and
+  year so far), what's left in your Spending Plan, and change vs last month; a
+  per-category breakdown; a **Month by month** table with columns for fixed
+  bills, other spending, household total, **Transfers to India** and total out;
+  a 12-month stacked chart (click a month to open it).
+- **Expenses** — quick-add form (type "Netflix", "petrol" or "sent to Mum" and
+  the category is picked for you), editable list, filters for fixed bills /
+  other spending / transfers to India, export the month to CSV.
+- **Spending Plan** — a monthly limit per category, or fill from your 3-month
+  averages.
 - **Upload** a CSV/Excel sheet (use **Template** for the columns:
-  Date, Category, Description, Amount, Recurring). Unknown categories are guessed
-  from the description.
+  Date, Category, Description, Amount).
 
 ## Files you need (put all 4 in one folder, e.g. ~/expenses-app)
 - package.json
