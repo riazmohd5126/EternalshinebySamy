@@ -195,7 +195,6 @@ function App() {
   const [tab, setTab] = useState("overview");
   const [month, setMonth] = useState(thisMonth());
   const [expenses, setExpenses] = useState([]);
-  const [plan, setPlan] = useState({});
   const [loaded, setLoaded] = useState(false);
   const [serverMode, setServerMode] = useState(false);
   const [status, setStatus] = useState("…");
@@ -208,8 +207,6 @@ function App() {
       note: e.note ?? "",
       amount: e.amount ?? ""
     })));
-    // "plan" was called "budgets" in the first version of the file.
-    setPlan(d.plan || (d.settings && d.settings.budgets) || {});
   };
   useEffect(() => {
     (async () => {
@@ -233,7 +230,7 @@ function App() {
   }, []);
   useEffect(() => {
     if (!loaded) return;
-    const payload = JSON.stringify({ expenses, plan });
+    const payload = JSON.stringify({ expenses });
     const t = setTimeout(async () => {
       try { localStorage.setItem(KEY, payload); } catch (e) {}
       if (serverMode) {
@@ -247,7 +244,7 @@ function App() {
       }
     }, 500);
     return () => clearTimeout(t);
-  }, [expenses, plan, loaded, serverMode]);
+  }, [expenses, loaded, serverMode]);
   const reload = async () => {
     if (serverMode) {
       try {
@@ -265,7 +262,6 @@ function App() {
   const addExpense = e => setExpenses(a => [{ id: uid(), ...e }, ...a]);
   const updateExpense = (id, f, v) => setExpenses(a => a.map(x => x.id === id ? { ...x, [f]: v } : x));
   const removeExpense = id => setExpenses(a => a.filter(x => x.id !== id));
-  const setPlanFor = (cat, v) => setPlan(p => ({ ...p, [cat]: v }));
 
   /* ---- totals per month: household spending (fixed + other) kept apart from India transfers ---- */
   const byMonth = useMemo(() => {
@@ -289,7 +285,6 @@ function App() {
   const empty = { total: 0, fixed: 0, india: 0, count: 0, cats: {} };
   const cur = byMonth[month] || empty;
   const prev = byMonth[shiftMonth(month, -1)] || empty;
-  const planTotal = CATS.reduce((s, c) => s + num(plan[c.id]), 0);
   const monthExpenses = useMemo(() => expenses
     .filter(e => (e.date || "").slice(0, 7) === month)
     .sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : 0), [expenses, month]);
@@ -364,7 +359,7 @@ function App() {
   const exportMonth = () => dl("expenses-" + month + ".csv",
     "Date,Category,Description,Amount\n" +
     monthExpenses.slice().reverse().map(e => [e.date, CAT[e.category]?.label || "Other", e.note, num(e.amount).toFixed(2)].map(csvCell).join(",")).join("\n") + "\n");
-  const exportData = () => dl("expenses-backup-" + today() + ".json", JSON.stringify({ expenses, plan }, null, 2), "application/json");
+  const exportData = () => dl("expenses-backup-" + today() + ".json", JSON.stringify({ expenses }, null, 2), "application/json");
   const importData = file => {
     if (!file) return;
     const r = new FileReader();
@@ -384,7 +379,6 @@ function App() {
   if (!loaded) return h("div", { style: { background: C.paper, minHeight: "100vh", color: C.sub }, className: "flex items-center justify-center text-sm" }, "Loading…");
 
   const delta = cur.total - prev.total;
-  const left = planTotal - cur.total;
   const hdrBtn = { color: C.sub, border: `1px solid ${C.line}`, background: C.card };
   return h("div", { style: { background: C.paper, color: C.ink, minHeight: "100vh" }, className: "w-full" },
     /* header */
@@ -424,23 +418,20 @@ function App() {
       h("div", { className: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3" },
         h(Kpi, { color: C.ink, icon: "wallet", label: "Spent in " + monthLabel(month, "tiny"), value: money(cur.total), sub: "fixed bills " + money(cur.fixed, 0) + " · other " + money(cur.total - cur.fixed, 0) }),
         h(Kpi, { color: C.india, icon: "send", label: "Sent to India", value: money(cur.india), sub: money(indiaYear, 0) + " so far in " + month.slice(0, 4) }),
-        planTotal > 0
-          ? h(Kpi, { color: left >= 0 ? C.good : C.bad, icon: "target", label: left >= 0 ? "Left in plan" : "Over plan", value: money(Math.abs(left)), sub: "of " + money(planTotal) + " planned" })
-          : h(Kpi, { color: C.sub, icon: "target", label: "Left in plan", value: "—", sub: "set limits in Spending Plan" }),
+        h(Kpi, { color: C.accent, icon: "wallet", label: "Total out in " + monthLabel(month, "tiny"), value: money(cur.total + cur.india), sub: "expenditure + transfers to India" }),
         h(Kpi, { color: delta > 0 ? C.bad : C.good, icon: delta > 0 ? "up" : "down", label: "vs " + monthLabel(shiftMonth(month, -1), "tiny"), value: (delta > 0 ? "+" : delta < 0 ? "−" : "") + money(Math.abs(delta)), sub: prev.total ? (delta > 0 ? "more" : "less") + " than " + money(prev.total) + " (" + Math.round(Math.abs(delta) / prev.total * 100) + "%)" : "nothing logged last month" })),
 
       /* tabs */
       h("div", { className: "mt-5 flex gap-1 overflow-x-auto pb-1" },
-        [["overview", "Overview"], ["expenses", "Expenses"], ["plan", "Spending Plan"]].map(([id, lbl]) => h("button", {
+        [["overview", "Overview"], ["expenses", "Expenditure"]].map(([id, lbl]) => h("button", {
           key: id, onClick: () => setTab(id),
           style: { background: tab === id ? C.ink : "transparent", color: tab === id ? "#fff" : C.sub, border: `1px solid ${tab === id ? C.ink : C.line}` },
           className: "px-3.5 py-1.5 rounded-full text-sm whitespace-nowrap"
         }, lbl))),
 
       h("div", { className: "mt-4" },
-        tab === "overview" && h(Overview, { month, byMonth, cur, prev, plan, planTotal, empty: !expenses.length, onPick: setMonth, go: () => setTab("expenses") }),
-        tab === "expenses" && h(ExpensesTab, { month, items: monthExpenses, cur, onAdd: addExpense, onUpdate: updateExpense, onRemove: removeExpense, onUpload: uploadExpenses, onTemplate: template, onExport: exportMonth }),
-        tab === "plan" && h(PlanTab, { month, byMonth, plan, planTotal, onPlan: setPlanFor })),
+        tab === "overview" && h(Overview, { month, byMonth, cur, prev, empty: !expenses.length, onPick: setMonth, go: () => setTab("expenses") }),
+        tab === "expenses" && h(ExpensesTab, { month, items: monthExpenses, cur, onAdd: addExpense, onUpdate: updateExpense, onRemove: removeExpense, onUpload: uploadExpenses, onTemplate: template, onExport: exportMonth })),
 
       h("div", { className: "text-xs mt-6 text-center", style: { color: C.sub } },
         serverMode
@@ -461,31 +452,30 @@ function CopyBanner({ month, copyPlan, onCopy }) {
 }
 
 /* ---------- Overview ---------- */
-function Overview({ month, byMonth, cur, prev, plan, planTotal, empty, onPick, go }) {
+function Overview({ month, byMonth, cur, prev, empty, onPick, go }) {
   if (empty) return h("div", { style: { background: C.card, border: `1px dashed ${C.line}` }, className: "rounded-2xl p-8 text-center" },
     h(Icon, { name: "wallet", size: 30, color: C.accent, className: "mx-auto" }),
     h("div", { className: "serif text-xl mt-3" }, "Nothing logged yet"),
     h("div", { className: "text-sm mt-1", style: { color: C.sub } }, "Add this month's rent and bills once. Next month, copy them across with one click."),
     h("button", { onClick: go, style: { background: C.accent, color: "#fff" }, className: "mt-4 px-4 py-2 rounded-full text-sm inline-flex items-center gap-1.5" },
-      h(Icon, { name: "plus", size: 15, color: "#fff" }), " Add an expense"));
+      h(Icon, { name: "plus", size: 15, color: "#fff" }), " Add expenditure"));
 
   const trend = [];
   for (let k = 11; k >= 0; k--) {
     const m = shiftMonth(month, -k);
     trend.push({ m, ...(byMonth[m] || { total: 0, fixed: 0, india: 0, cats: {} }) });
   }
-  const rows = CATS.map(c => ({ ...c, spent: cur.cats[c.id] || 0, last: prev.cats[c.id] || 0, limit: num(plan[c.id]) }))
-    .filter(r => r.spent || r.limit || r.last)
+  const rows = CATS.map(c => ({ ...c, spent: cur.cats[c.id] || 0, last: prev.cats[c.id] || 0 }))
+    .filter(r => r.spent || r.last)
     .sort((a, b) => b.spent - a.spent);
   const maxSpent = Math.max(1, ...rows.map(r => r.spent));
 
   return h("div", { className: "space-y-3" },
-    h(Panel, { title: "Where it went — " + monthLabel(month), note: (planTotal ? "Each bar fills toward that category's monthly limit. " : "") + "Transfers to India are counted separately." },
+    h(Panel, { title: "Where it went — " + monthLabel(month), note: "Expenditure by category. Transfers to India are counted separately." },
       cur.total > 0 && h("div", { className: "flex h-3 rounded-full overflow-hidden mb-3", style: { background: C.line } },
         CATS.filter(c => cur.cats[c.id] > 0).map(c => h("div", { key: c.id, title: c.label + " " + money(cur.cats[c.id]), style: { width: (cur.cats[c.id] / cur.total * 100) + "%", background: c.color } }))),
       rows.length === 0 ? h(Muted, null, "No expenses in " + monthLabel(month) + ".") : rows.map(r => {
-        const over = r.limit > 0 && r.spent > r.limit;
-        const fill = r.limit > 0 ? Math.min(1, r.spent / r.limit) : r.spent / maxSpent;
+        const fill = r.spent / maxSpent;
         const diff = r.spent - r.last;
         return h("div", { key: r.id, className: "py-2.5", style: { borderTop: `1px solid ${C.line}` } },
           h("div", { className: "flex items-center gap-3" },
@@ -496,15 +486,14 @@ function Overview({ month, byMonth, cur, prev, plan, planTotal, empty, onPick, g
                 cur.total ? Math.round(r.spent / cur.total * 100) + "% of month" : "—",
                 r.last || r.spent ? h("span", null, " · ", diff === 0 ? "same as last month" : (diff > 0 ? "▲ " : "▼ ") + money(Math.abs(diff)) + " vs last month") : null)),
             h("div", { className: "text-right shrink-0" },
-              h("div", { className: "font-mono font-semibold", style: { color: over ? C.bad : C.ink } }, money(r.spent)),
-              r.limit > 0 && h("div", { className: "text-xs", style: { color: over ? C.bad : C.sub } }, over ? "over by " + money(r.spent - r.limit) : money(r.limit - r.spent) + " left"))),
+              h("div", { className: "font-mono font-semibold" }, money(r.spent)))),
           h("div", { className: "mt-2 h-1.5 rounded-full overflow-hidden ml-11", style: { background: C.line } },
-            h("div", { style: { width: (fill * 100) + "%", background: over ? C.bad : r.color, height: "100%" } })));
+            h("div", { style: { width: (fill * 100) + "%", background: r.color, height: "100%" } })));
       })),
-    h(Panel, { title: "Month by month", note: "Household spending and money sent to India, side by side. Click a month to open it." },
+    h(Panel, { title: "Month by month", note: "Expenditure and money sent to India, side by side. Click a month to open it." },
       h(SummaryTable, { trend, month, onPick })),
-    h(Panel, { title: "Last 12 months", note: "Household spending stacked by category." + (planTotal ? " Dashed line is your monthly plan." : "") },
-      h(TrendChart, { data: trend, month, limit: planTotal, onPick })));
+    h(Panel, { title: "Last 12 months", note: "Expenditure stacked by category." },
+      h(TrendChart, { data: trend, month, onPick })));
 }
 function SummaryTable({ trend, month, onPick }) {
   const rows = trend.filter(t => t.total || t.india).reverse();
@@ -517,8 +506,8 @@ function SummaryTable({ trend, month, onPick }) {
       h("thead", null, h("tr", { style: { color: C.sub } },
         h("th", { className: th + " text-left" }, "Month"),
         h("th", { className: th }, "Fixed bills"),
-        h("th", { className: th }, "Other spending"),
-        h("th", { className: th }, "Household total"),
+        h("th", { className: th }, "Other expenditure"),
+        h("th", { className: th }, "Total expenditure"),
         h("th", { className: th, style: { color: C.india } }, "Transfers to India"),
         h("th", { className: th }, "Total out"))),
       h("tbody", null,
@@ -542,10 +531,10 @@ const niceMax = v => {
   const f = v / p;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
 };
-function TrendChart({ data, month, limit, onPick }) {
+function TrendChart({ data, month, onPick }) {
   const W = 640, H = 240, padL = 50, padR = 12, padT = 14, padB = 30;
   const iw = W - padL - padR, ih = H - padT - padB;
-  const top = niceMax(Math.max(1, limit || 0, ...data.map(d => d.total)));
+  const top = niceMax(Math.max(1, ...data.map(d => d.total)));
   const y = v => padT + ih - v / top * ih;
   const n = data.length, band = iw / n, bw = Math.min(30, band * 0.62);
   const grid = [0, 1, 2, 3, 4].map(i => top * i / 4);
@@ -569,8 +558,7 @@ function TrendChart({ data, month, limit, onPick }) {
             return h("rect", { key: c.id, x: x0, y: y1, width: bw, height: Math.max(0, y0 - y1), fill: c.color });
           }),
           h("text", { x: x0 + bw / 2, y: H - padB + 16, textAnchor: "middle", fontSize: "10", fill: sel ? C.ink : C.sub, fontWeight: sel ? "700" : "400" }, monthLabel(d.m, "tiny")));
-      }),
-      limit > 0 && h("line", { x1: padL, y1: y(limit), x2: W - padR, y2: y(limit), stroke: C.bad, strokeWidth: "1.5", strokeDasharray: "5 4" })),
+      })),
     h("div", { className: "flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-2 text-xs", style: { color: C.sub } },
       CATS.map(c => h("span", { key: c.id, className: "inline-flex items-center gap-1" },
         h("span", { style: { background: c.color, width: 10, height: 10, borderRadius: 2, display: "inline-block" } }), " ", c.label))));
@@ -634,7 +622,7 @@ function QuickAdd({ month, onAdd }) {
   };
   const onKey = ev => { if (ev.key === "Enter") submit(); };
   return h("div", { style: { background: C.card, border: `1px solid ${C.line}` }, className: "rounded-2xl p-3.5" },
-    h("div", { className: "serif text-lg leading-tight mb-2" }, "Add an expense or transfer"),
+    h("div", { className: "serif text-lg leading-tight mb-2" }, "Add expenditure or a transfer"),
     h("div", { className: "grid grid-cols-2 sm:grid-cols-12 gap-2 items-end" },
       h("div", { className: "sm:col-span-2" }, h(Field, { label: "Date" }, h("input", { type: "date", value: f.date, onChange: set("date"), className: "fld" }))),
       h("div", { className: "sm:col-span-3" }, h(Field, { label: "Category" }, h(CatSelect, { value: f.category, onChange: set("category") }))),
@@ -655,34 +643,6 @@ function ExpenseRow({ e, first, onUpdate, onRemove }) {
     h("input", { inputMode: "decimal", value: e.amount, onChange: up("amount"), className: "fld font-mono text-right", style: { width: 100 } }),
     h("button", { onClick: () => onRemove(e.id), className: "p-1 shrink-0", title: "Delete" },
       h(Icon, { name: "trash", size: 16, color: C.danger })));
-}
-
-/* ---------- Spending Plan ---------- */
-function PlanTab({ month, byMonth, plan, planTotal, onPlan }) {
-  const last3 = [1, 2, 3].map(k => byMonth[shiftMonth(month, -k)]).filter(Boolean);
-  const avgOf = id => last3.length ? last3.reduce((s, m) => s + (m.cats[id] || 0), 0) / last3.length : 0;
-  const fillFromAvg = () => CATS.forEach(c => { const a = avgOf(c.id); if (a > 0) onPlan(c.id, String(Math.ceil(a))); });
-  const group = (title, cats) => [
-    h("div", { key: title, className: "text-[11px] uppercase tracking-wider pt-3 pb-1", style: { color: C.sub } }, title),
-    ...cats.map(c => {
-      const a = avgOf(c.id);
-      return h("div", { key: c.id, className: "py-2.5 flex items-center gap-3", style: { borderTop: `1px solid ${C.line}` } },
-        h(CatChip, { c }),
-        h("div", { className: "flex-1 min-w-0" },
-          h("div", { className: "text-sm font-medium" }, c.label, c.hint && h("span", { className: "text-xs font-normal", style: { color: C.sub } }, " · ", c.hint)),
-          h("div", { className: "text-xs mt-0.5", style: { color: C.sub } }, a > 0 ? "avg last " + last3.length + " mo: " + money(a) : "no recent spending")),
-        h("div", { style: { width: 130 } },
-          h("input", { inputMode: "decimal", value: plan[c.id] ?? "", onChange: ev => onPlan(c.id, ev.target.value), placeholder: "no limit", className: "fld font-mono text-right" })));
-    })
-  ];
-  return h(Panel, { title: "Spending Plan", note: "How much you expect to spend in each category per month. Leave blank for no limit. Transfers to India aren't part of the plan." },
-    group("Fixed bills — copied forward each month", FIXED),
-    group("Other spending — added by hand", CATS.filter(c => !c.fixed)),
-    h("div", { className: "pt-3 mt-1 flex flex-wrap items-center justify-between gap-2", style: { borderTop: `1px solid ${C.line}` } },
-      last3.length > 0
-        ? h("button", { onClick: fillFromAvg, style: { border: `1px solid ${C.line}`, background: C.card, color: C.sub }, className: "px-3 py-1.5 rounded-full text-xs" }, "Fill from recent averages")
-        : h("span"),
-      h("div", { className: "text-sm" }, h("span", { style: { color: C.sub } }, "Planned per month "), h("span", { className: "font-mono font-semibold" }, money(planTotal)))));
 }
 
 /* ---------- shared ---------- */

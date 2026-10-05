@@ -17,15 +17,13 @@ Internet / WiFi · Phone bill · Fuel
   Everything else you add by hand.
 - **Month switcher** — step back and forth through months; everything follows.
 - **Overview** — spent this month (fixed vs other), sent to India (month and
-  year so far), what's left in your Spending Plan, and change vs last month; a
+  year so far), total out (expenditure + transfers), and change vs last month; a
   per-category breakdown; a **Month by month** table with columns for fixed
-  bills, other spending, household total, **Transfers to India** and total out;
+  bills, other expenditure, total expenditure, **Transfers to India** and total out;
   a 12-month stacked chart (click a month to open it).
-- **Expenses** — quick-add form (type "Netflix", "petrol" or "sent to Mum" and
+- **Expenditure** — record what you've spent: quick-add form (type "Netflix", "petrol" or "sent to Mum" and
   the category is picked for you), editable list, filters for fixed bills /
   other spending / transfers to India, export the month to CSV.
-- **Spending Plan** — a monthly limit per category, or fill from your 3-month
-  averages.
 - **Upload** a CSV/Excel sheet (use **Template** for the columns:
   Date, Category, Description, Amount).
 
