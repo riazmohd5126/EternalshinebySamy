@@ -3,8 +3,9 @@
 // The window shows home.html (sidebar + summary); each app page runs inside it at /apps/<id>/
 // and reads/writes only its own file through /apps/<id>/api/data.
 
-const { app, BrowserWindow, nativeImage } = require("electron");
+const { app, BrowserWindow, nativeImage, shell } = require("electron");
 const http = require("http");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -28,6 +29,24 @@ const MODULES = [
     dir: "Monthly-Expenses",
     file: "expenses-data.json",
     defaults: { expenses: [] },
+    legacy: []
+  },
+  {
+    id: "turo",
+    name: "Turo Car Forecaster",
+    dir: "Turo-Forecaster",
+    file: "turo-data.json",
+    defaults: { cars: [], activeId: null },
+    legacy: []
+  },
+  {
+    // The pharmacy's real database is its Google Sheet. This file holds only the
+    // dashboard's settings for the pipeline and the last snapshot read from the sheet.
+    id: "pharmacy",
+    name: "Universal Pharmacy",
+    dir: "Universal-Pharmacy",
+    file: "pharmacy-data.json",
+    defaults: { settings: { folder: "", python: "python3", geminiKey: "" }, snapshot: null },
     legacy: []
   }
 ];
@@ -82,6 +101,76 @@ function writeData(m, req, res) {
   });
 }
 
+/* ---------- Universal Pharmacy: runs the Python MR pipeline that lives in its own folder ---------- */
+function pharmacySettings() {
+  try { return JSON.parse(fs.readFileSync(dataFile(byId.pharmacy), "utf8")).settings || {}; } catch (e) { return {}; }
+}
+function pythonEnv(s) {
+  // Apps opened from Finder get a bare PATH, so add the usual Homebrew / python.org locations.
+  const env = { ...process.env, PYTHONUNBUFFERED: "1" };
+  env.PATH = ["/opt/homebrew/bin", "/usr/local/bin", "/Library/Frameworks/Python.framework/Versions/Current/bin", env.PATH || ""].join(":");
+  if (s.geminiKey) env.GEMINI_API_KEY = s.geminiKey;
+  return env;
+}
+function pharmacyCheck() {
+  const s = pharmacySettings(), folder = s.folder || "";
+  const has = f => !!folder && fs.existsSync(path.join(folder, f));
+  let batches = [], log = "";
+  try {
+    const st = JSON.parse(fs.readFileSync(path.join(folder, "pipeline_state.json"), "utf8"));
+    batches = Object.entries(st).map(([key, v]) => ({ key, ...v }));
+  } catch (e) {}
+  try { log = fs.readFileSync(path.join(folder, "pipeline.log"), "utf8").split("\n").slice(-60).join("\n"); } catch (e) {}
+  return { folder, folderFound: !!folder && fs.existsSync(folder), hasMain: has("main.py"), hasConfig: has("config.py"), batches, log };
+}
+const job = { running: false, mode: "", output: "", exitCode: null, startedAt: null };
+function runPipeline(mode) {
+  if (job.running) return false;
+  const s = pharmacySettings();
+  const args = ["main.py"].concat(mode === "test" ? ["--test"] : []);
+  Object.assign(job, { running: true, mode, output: "$ " + (s.python || "python3") + " " + args.join(" ") + "\n", exitCode: null, startedAt: new Date().toISOString() });
+  let child;
+  try { child = spawn(s.python || "python3", args, { cwd: s.folder, env: pythonEnv(s) }); }
+  catch (e) { job.output += String(e) + "\n"; job.running = false; job.exitCode = -1; return true; }
+  const add = d => { job.output = (job.output + d).slice(-200000); };
+  child.stdout.on("data", add);
+  child.stderr.on("data", add);
+  child.on("error", e => { add("\nCould not start Python: " + e.message + "\n"); });
+  child.on("close", code => { job.running = false; job.exitCode = code; });
+  return true;
+}
+function readSheet(cb) {
+  const s = pharmacySettings();
+  let code;
+  try { code = fs.readFileSync(path.join(__dirname, "apps", "pharmacy", "sheet_report.py"), "utf8"); }
+  catch (e) { return cb({ error: "sheet_report.py is missing from the app" }); }
+  let out = "", err = "", child;
+  // Passed with -c so it also works when the app is packaged (files inside app.asar can't be run directly).
+  try { child = spawn(s.python || "python3", ["-c", code], { cwd: s.folder, env: pythonEnv(s) }); }
+  catch (e) { return cb({ error: String(e) }); }
+  child.stdout.on("data", d => out += d);
+  child.stderr.on("data", d => err += d);
+  child.on("error", e => cb({ error: "Could not start Python: " + e.message }));
+  child.on("close", () => {
+    try {
+      const r = JSON.parse(out.trim().split("\n").pop());
+      if (r.error) return cb(r);
+      // Keep the snapshot in the pharmacy's own data file so the home screen can show it.
+      const f = dataFile(byId.pharmacy);
+      let d = {};
+      try { d = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) {}
+      d.snapshot = { fetchedAt: new Date().toISOString(), ...r };
+      fs.writeFileSync(f, JSON.stringify(d, null, 2));
+      cb({ ok: true, snapshot: d.snapshot });
+    } catch (e) { cb({ error: (err || out || "No output from Python").trim().slice(-1500) }); }
+  });
+}
+function readBody(req, cb) {
+  let body = "";
+  req.on("data", c => { body += c; if (body.length > 1e6) req.destroy(); });
+  req.on("end", () => { try { cb(JSON.parse(body || "{}")); } catch (e) { cb({}); } });
+}
+
 function startServer(cb) {
   const server = http.createServer((req, res) => {
     const url = decodeURIComponent(req.url.split("?")[0]);
@@ -94,6 +183,19 @@ function startServer(cb) {
     if (mm && byId[mm[1]]) {
       const m = byId[mm[1]], rest = mm[2] || "";
       if (rest === "") { res.writeHead(302, { Location: "/apps/" + m.id + "/" }); return res.end(); }
+      if (m.id === "pharmacy" && rest.startsWith("/api/") && rest !== "/api/data") {
+        if (rest === "/api/status" && req.method === "GET") return send(res, 200, JSON.stringify(pharmacyCheck()));
+        if (rest === "/api/run" && req.method === "GET") return send(res, 200, JSON.stringify(job));
+        if (rest === "/api/run" && req.method === "POST") {
+          return readBody(req, b => {
+            const c = pharmacyCheck();
+            if (!c.hasMain) return send(res, 400, JSON.stringify({ ok: false, error: "main.py not found in the pipeline folder" }));
+            send(res, 200, JSON.stringify({ ok: runPipeline(b.mode === "test" ? "test" : "once"), job }));
+          });
+        }
+        if (rest === "/api/sheet" && req.method === "POST") return readSheet(r => send(res, r.error ? 500 : 200, JSON.stringify(r)));
+        return send(res, 404, "Not found", "text/plain");
+      }
       if (rest === "/api/data" && req.method === "GET") return readData(m, res);
       if (rest === "/api/data" && req.method === "POST") return writeData(m, req, res);
       if (req.method === "GET") {
@@ -116,6 +218,8 @@ function createWindow() {
     title: "Master Dashboard", backgroundColor: "#F4F5F2",
     webPreferences: { contextIsolation: true },
   });
+  // Links such as the Google Sheet open in the normal browser.
+  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
   win.loadURL("http://127.0.0.1:" + serverPort);
 }
 
