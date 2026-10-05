@@ -8,7 +8,7 @@ numbers from every app, and a sidebar to open each one.
 | EternalShine by Samy | `~/Documents/EternalShine-by-Samy/samy-data.json` |
 | Monthly Expenses | `~/Documents/Monthly-Expenses/expenses-data.json` |
 | Turo Car Forecaster | `~/Documents/Turo-Forecaster/turo-data.json` |
-| Universal Pharmacy | your Google Sheet (MR Pipeline Data); settings + last snapshot in `~/Documents/Universal-Pharmacy/pharmacy-data.json` |
+| Universal Pharmacy | `~/Documents/Universal-Pharmacy/pharmacy-data.json` |
 
 **Databases stay separate.** Each app reads and writes only its own file, in its
 own folder. The Home screen only *reads* them to show the summary. These are the
@@ -29,17 +29,19 @@ Then drag `dist/mac-arm64/Master Dashboard.app` (or `dist/mac/…` on Intel) to
 Applications. First launch: right-click → Open → Open.
 
 ## Universal Pharmacy (MR pipeline)
-The pipeline itself stays in its own folder (the `Indian_Pharma` repo: main.py,
-config.py, google_credentials.json). The dashboard page:
-- **Pipeline settings**: the folder, the Python command that has its packages
-  installed (e.g. `/opt/homebrew/bin/python3` or a virtualenv's python), and
-  optionally the Gemini API key (apps opened from Finder don't see your shell's
-  environment variables).
-- **Process new photos** runs `python main.py`; **Test run** runs `python main.py --test`.
-  The output shows live.
-- **Refresh from Google Sheet** reads the daily_reports, orders and
-  exception_queue tabs (read-only) and shows POB, TC/PC, MR performance, top
-  products, daily reports, items needing review and processed batches.
+Everything is stored in its own JSON file: daily reports, order lines and the
+needs-review queue. Google Sheets is not used.
+- **Add a daily report** by hand (date, MR, area, TC, PC, POB, stockist).
+- **Process new photos** runs the MR pipeline (the `Indian_Pharma` folder:
+  main.py, config.py). The dashboard runs it through `apps/pharmacy/run_pipeline.py`,
+  which swaps the pipeline's Google Sheets writer for one that saves to the JSON
+  file. The pipeline folder itself is not changed. **Test run** = `main.py --test`.
+- **Pipeline settings** (bottom of the page): the folder, the Python command that
+  has its packages installed (e.g. `/opt/homebrew/bin/python3`), where photos come
+  from (Google Drive or the local inbox folder) and optionally the Gemini API key
+  (apps opened from Finder don't see your shell's environment variables).
+- Deleting rows, marking review items done, Backup and Restore all work on the
+  same JSON file.
 
 ## Folder layout
     master-dashboard/
@@ -50,7 +52,7 @@ config.py, google_credentials.json). The dashboard page:
         eternalshine/index.html
         expenses/index.html
         turo/index.html, model.js     (model.js = the forecast maths, shared with Home)
-        pharmacy/index.html, sheet_report.py
+        pharmacy/index.html, run_pipeline.py
 
 ## Adding another app
 1. Put its page at `apps/<id>/index.html`. It loads and saves its data with

@@ -98,7 +98,7 @@ const APPS = [
     icon: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M2 9h20"/>', storageKey: "samy-sparkle-dashboard-v1" },
   { id: "expenses", name: "Monthly Expenses", blurb: "Household bills & transfers to India", color: "#3F6E8C", ready: true,
     icon: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>', storageKey: "monthly-expenses-v1" },
-  { id: "pharmacy", name: "Universal Pharmacy", blurb: "MR field reports → Google Sheet", color: "#2E8B6E", ready: true,
+  { id: "pharmacy", name: "Universal Pharmacy", blurb: "MR field reports & orders", color: "#2E8B6E", ready: true,
     icon: '<path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/>' },
   { id: "turo", name: "Turo Car Forecaster", blurb: "Earnings & payback for rental cars", color: "#6A4FC9", ready: true, storageKey: "turo-forecaster-v1",
     icon: '<path d="M5 17h14l-1.5-6.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5Z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>' }
@@ -140,7 +140,7 @@ function sumEternal(d) {
   });
   return { rev, net: rev - fees - cost, stock: qty - sold, monthRev, monthNet, events: ev.length };
 }
-/* Universal Pharmacy: its data lives in Google Sheets; the app keeps the last snapshot it read. */
+/* Universal Pharmacy: daily reports, orders and the review queue in its own JSON file. */
 function pharmDate(v) {
   const s = String(v ?? "").trim(); let m;
   if ((m = s.match(/^(\d{4})-(\d{1,2})/))) return m[1] + "-" + pad(m[2]);
@@ -149,15 +149,11 @@ function pharmDate(v) {
   return "";
 }
 function sumPharmacy(d) {
-  const snap = d?.snapshot, set = d?.settings || {};
-  if (!snap) return { connected: !!set.folder, snap: false };
-  const daily = (snap.daily || []).filter(r => pharmDate(r["Date"]) === THIS_MONTH);
+  const all = d?.daily || [];
+  const daily = all.filter(r => pharmDate(r["Date"]) === THIS_MONTH);
   const tc = daily.reduce((s, r) => s + num(r["Total Calls (TC)"]), 0), pc = daily.reduce((s, r) => s + num(r["Productive Calls (PC)"]), 0);
-  return {
-    connected: true, snap: true, fetchedAt: snap.fetchedAt,
-    pob: daily.reduce((s, r) => s + num(r["POB (Rs)"]), 0), tc, pc, reports: daily.length,
-    review: (snap.exceptions || []).filter(r => String(r["Status"] || "").toLowerCase().includes("review")).length
-  };
+  const review = (d?.exceptions || []).filter(r => { const st = String(r["Status"] || "").toLowerCase(); return st.includes("review") && !st.startsWith("reviewed"); }).length;
+  return { any: all.length > 0, pob: daily.reduce((s, r) => s + num(r["POB (Rs)"]), 0), tc, pc, reports: daily.length, review };
 }
 /* Turo: same forecast() the Turo page uses (apps/turo/model.js). */
 function sumTuro(d) {
@@ -204,17 +200,16 @@ async function renderHome() {
       ${stat(APPS[0].color, "EternalShine profit · " + MONTH_NAME, fmt(E.monthNet, 2), fmt(E.monthRev) + " in sales this month", E.monthNet >= 0 ? "pos" : "neg")}
       ${stat(APPS[1].color, "Household spent · " + MONTH_NAME, fmt(X.spent, 2), "rent, bills, groceries and more")}
       ${stat("var(--india)", "Sent to India · " + MONTH_NAME, fmt(X.india, 2), fmt(X.indiaYear) + " so far in " + now.getFullYear(), "ind")}
-      ${P.snap ? stat(APPS[2].color, "Pharmacy POB · " + MONTH_NAME, inr(P.pob), P.reports + " MR daily reports") : stat(APPS[2].color, "Pharmacy POB · " + MONTH_NAME, "—", P.connected ? "open it and refresh from Google Sheet" : "connect the pipeline folder")}
+      ${stat(APPS[2].color, "Pharmacy POB · " + MONTH_NAME, P.any ? inr(P.pob) : "—", P.any ? P.reports + " MR daily reports" : "no reports yet")}
       ${T.cars ? stat(APPS[3].color, "Turo take-home / month", usd(T.active.f.yr1.net), (T.active.c.name || "Untitled car") + " · year one", T.active.f.yr1.net >= 0 ? "pos" : "neg") : stat(APPS[3].color, "Turo take-home / month", "—", "add a car in Turo")}
     </div>
     <h2>Your apps</h2>
     <div class="grid">
       ${card(APPS[0], num3([["Total revenue", fmt(E.rev)], ["Net profit", fmt(E.net), E.net >= 0 ? "pos" : "neg"], ["Rings in stock", fmt(E.stock)]]), E.events ? E.events + " selling events logged" : "")}
       ${card(APPS[1], num3([["Spent in " + MONTH_NAME.slice(0, 3), fmt(X.spent)], ["Sent to India", fmt(X.india), "ind"], ["Total out", fmt(X.total)]]))}
-      ${card(APPS[2], P.snap
+      ${card(APPS[2], P.any
         ? num3([["POB in " + MONTH_NAME.slice(0, 3), inr(P.pob)], ["Productive calls", P.tc ? Math.round(P.pc / P.tc * 100) + "%" : "—"], ["Needs review", fmt(P.review), P.review ? "neg" : ""]])
-        : `<p class="note">${P.connected ? "Connected. Open it and click <b>Refresh from Google Sheet</b> to load this month's reports." : "Open it and enter your MR pipeline folder to connect. Its data stays in your Google Sheet."}</p>`,
-        P.snap ? "Google Sheet read " + new Date(P.fetchedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "")}
+        : `<p class="note">No reports yet. Open it to add a daily report, or connect the MR pipeline to process photos.</p>`)}
       ${card(APPS[3], T.cars
         ? num3([["Take-home / mo", usd(T.active.f.yr1.net), T.active.f.yr1.net >= 0 ? "pos" : "neg"], ["Pays for itself", payText(T.active.f.fullPayback)], ["Cars compared", fmt(T.cars)]])
         : `<p class="note">Add the cars you're considering to see earnings and payback.</p>`,

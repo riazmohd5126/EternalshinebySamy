@@ -40,13 +40,13 @@ const MODULES = [
     legacy: []
   },
   {
-    // The pharmacy's real database is its Google Sheet. This file holds only the
-    // dashboard's settings for the pipeline and the last snapshot read from the sheet.
+    // Daily reports, orders and the review queue all live in this one JSON file.
+    // The Python pipeline writes here too (see apps/pharmacy/run_pipeline.py).
     id: "pharmacy",
     name: "Universal Pharmacy",
     dir: "Universal-Pharmacy",
     file: "pharmacy-data.json",
-    defaults: { settings: { folder: "", python: "python3", geminiKey: "" }, snapshot: null },
+    defaults: { settings: { folder: "", python: "python3", geminiKey: "", source: "drive" }, daily: [], orders: [], exceptions: [] },
     legacy: []
   }
 ];
@@ -110,6 +110,7 @@ function pythonEnv(s) {
   const env = { ...process.env, PYTHONUNBUFFERED: "1" };
   env.PATH = ["/opt/homebrew/bin", "/usr/local/bin", "/Library/Frameworks/Python.framework/Versions/Current/bin", env.PATH || ""].join(":");
   if (s.geminiKey) env.GEMINI_API_KEY = s.geminiKey;
+  env.PHARMACY_DATA_FILE = dataFile(byId.pharmacy);
   return env;
 }
 function pharmacyCheck() {
@@ -127,10 +128,14 @@ const job = { running: false, mode: "", output: "", exitCode: null, startedAt: n
 function runPipeline(mode) {
   if (job.running) return false;
   const s = pharmacySettings();
-  const args = ["main.py"].concat(mode === "test" ? ["--test"] : []);
-  Object.assign(job, { running: true, mode, output: "$ " + (s.python || "python3") + " " + args.join(" ") + "\n", exitCode: null, startedAt: new Date().toISOString() });
+  const flags = [].concat(mode === "test" ? ["--test"] : [], s.source === "local" ? ["--local"] : []);
+  let code;
+  try { code = fs.readFileSync(path.join(__dirname, "apps", "pharmacy", "run_pipeline.py"), "utf8"); }
+  catch (e) { job.output = "run_pipeline.py is missing from the app\n"; job.exitCode = -1; return true; }
+  Object.assign(job, { running: true, mode, output: "$ " + (s.python || "python3") + " main.py " + flags.join(" ") + "   (results saved to JSON)\n", exitCode: null, startedAt: new Date().toISOString() });
   let child;
-  try { child = spawn(s.python || "python3", args, { cwd: s.folder, env: pythonEnv(s) }); }
+  // Passed with -c so it also works when the app is packaged (files inside app.asar can't be run directly).
+  try { child = spawn(s.python || "python3", ["-c", code].concat(flags), { cwd: s.folder, env: pythonEnv(s) }); }
   catch (e) { job.output += String(e) + "\n"; job.running = false; job.exitCode = -1; return true; }
   const add = d => { job.output = (job.output + d).slice(-200000); };
   child.stdout.on("data", add);
@@ -138,32 +143,6 @@ function runPipeline(mode) {
   child.on("error", e => { add("\nCould not start Python: " + e.message + "\n"); });
   child.on("close", code => { job.running = false; job.exitCode = code; });
   return true;
-}
-function readSheet(cb) {
-  const s = pharmacySettings();
-  let code;
-  try { code = fs.readFileSync(path.join(__dirname, "apps", "pharmacy", "sheet_report.py"), "utf8"); }
-  catch (e) { return cb({ error: "sheet_report.py is missing from the app" }); }
-  let out = "", err = "", child;
-  // Passed with -c so it also works when the app is packaged (files inside app.asar can't be run directly).
-  try { child = spawn(s.python || "python3", ["-c", code], { cwd: s.folder, env: pythonEnv(s) }); }
-  catch (e) { return cb({ error: String(e) }); }
-  child.stdout.on("data", d => out += d);
-  child.stderr.on("data", d => err += d);
-  child.on("error", e => cb({ error: "Could not start Python: " + e.message }));
-  child.on("close", () => {
-    try {
-      const r = JSON.parse(out.trim().split("\n").pop());
-      if (r.error) return cb(r);
-      // Keep the snapshot in the pharmacy's own data file so the home screen can show it.
-      const f = dataFile(byId.pharmacy);
-      let d = {};
-      try { d = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) {}
-      d.snapshot = { fetchedAt: new Date().toISOString(), ...r };
-      fs.writeFileSync(f, JSON.stringify(d, null, 2));
-      cb({ ok: true, snapshot: d.snapshot });
-    } catch (e) { cb({ error: (err || out || "No output from Python").trim().slice(-1500) }); }
-  });
 }
 function readBody(req, cb) {
   let body = "";
@@ -193,11 +172,14 @@ function startServer(cb) {
             send(res, 200, JSON.stringify({ ok: runPipeline(b.mode === "test" ? "test" : "once"), job }));
           });
         }
-        if (rest === "/api/sheet" && req.method === "POST") return readSheet(r => send(res, r.error ? 500 : 200, JSON.stringify(r)));
         return send(res, 404, "Not found", "text/plain");
       }
       if (rest === "/api/data" && req.method === "GET") return readData(m, res);
-      if (rest === "/api/data" && req.method === "POST") return writeData(m, req, res);
+      if (rest === "/api/data" && req.method === "POST") {
+        // While the pipeline is writing to the pharmacy file, don't let the page overwrite it.
+        if (m.id === "pharmacy" && job.running) return send(res, 409, JSON.stringify({ ok: false, error: "The pipeline is running; try again when it finishes." }));
+        return writeData(m, req, res);
+      }
       if (req.method === "GET") {
         const rel = rest === "/" ? "index.html" : rest.slice(1);
         const base = path.join(__dirname, "apps", m.id);
@@ -218,7 +200,7 @@ function createWindow() {
     title: "Master Dashboard", backgroundColor: "#F4F5F2",
     webPreferences: { contextIsolation: true },
   });
-  // Links such as the Google Sheet open in the normal browser.
+  // Links to websites open in the normal browser.
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
   win.loadURL("http://127.0.0.1:" + serverPort);
 }

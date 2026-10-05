@@ -51,8 +51,8 @@
   td.n, th.n { text-align: right; font-family: var(--mono); white-space: nowrap; }
   .empty { color: var(--sub); text-align: center; padding: 18px 8px; font-size: 13px; }
   label.f { display: block; font-size: 12px; color: var(--sub); }
-  label.f input { display: block; width: 100%; margin-top: 3px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); background: transparent; }
-  .fields { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+  label.f input, label.f select { display: block; width: 100%; margin-top: 3px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 13px; color: var(--ink); background: transparent; }
+  .fields { display: grid; grid-template-columns: 2fr 1fr 1.3fr 1.3fr; gap: 10px; }
   .checks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .pill { font-size: 12px; border-radius: 99px; padding: 3px 9px; border: 1px solid var(--line); }
   .pill.ok { background: var(--soft); color: var(--good); border-color: transparent; }
@@ -64,7 +64,12 @@
   details summary::-webkit-details-marker { display: none; }
   .muted { color: var(--sub); }
   @media (max-width: 640px) { .fields { grid-template-columns: 1fr; } header.top, main { padding-left: 16px; padding-right: 16px; } }
+  .addgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .x { border: 0; background: transparent; color: var(--bad); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 6px; }
+  .x:hover { background: #FBEAE6; }
+  @media (max-width: 760px) { .addgrid { grid-template-columns: 1fr 1fr; } }
 </style>
+
 </head>
 <body>
 <header class="top"><div class="wrap">
@@ -73,25 +78,14 @@
     <div><b>Universal Pharmacy</b><span id="sub">MR field reports</span></div>
   </div>
   <div class="row">
-    <button class="btn" id="refresh">↻ Refresh from Google Sheet</button>
-    <a class="btn" id="sheetLink" target="_blank" rel="noopener" hidden>Open Google Sheet ↗</a>
+    <button class="btn" id="backup">↓ Backup</button>
+    <label class="btn" for="restoreFile" style="cursor:pointer">↑ Restore</label>
+    <input type="file" id="restoreFile" accept=".json" hidden>
   </div>
 </div></header>
 
 <main><div class="wrap stack">
-  <div id="sheetErr" class="err" hidden></div>
-
-  <details class="card" id="setup">
-    <summary><h3 style="display:inline">Pipeline settings</h3> <span class="muted" id="setupState"></span></summary>
-    <p class="note">Where your MR pipeline (main.py, config.py) lives on this Mac, and the Python that has its packages installed.</p>
-    <div class="fields">
-      <label class="f">Pipeline folder<input id="folder" placeholder="/Users/riazmohd/Downloads/mr_pipeline 2"></label>
-      <label class="f">Python command<input id="python" placeholder="python3"></label>
-      <label class="f">Gemini API key (optional)<input id="gkey" type="password" placeholder="leave blank if set in your shell" autocomplete="off"></label>
-    </div>
-    <div class="row" style="margin-top:10px"><button class="btn dark" id="save">Save settings</button><span class="muted" id="saved"></span></div>
-    <div class="checks" id="checks"></div>
-  </details>
+  <div id="msg" class="err" hidden></div>
 
   <div>
     <div class="month"><button class="round" id="prev" title="Previous month">‹</button><b id="monthLbl"></b><button class="round" id="next" title="Next month">›</button></div>
@@ -99,23 +93,57 @@
   </div>
 
   <section class="card">
+    <h3>Add a daily report</h3>
+    <p class="note">For a day you're entering by hand. Reports from the pipeline are added automatically.</p>
+    <form id="addForm" class="addgrid">
+      <label class="f">Date<input id="aDate" type="date" required></label>
+      <label class="f">MR name<input id="aMr" list="mrList" placeholder="e.g. Tanzeem Ahmad" required></label>
+      <label class="f">Working area<input id="aArea" placeholder="e.g. Dalpatpur"></label>
+      <label class="f">Total calls (TC)<input id="aTc" inputmode="numeric" placeholder="0"></label>
+      <label class="f">Productive calls (PC)<input id="aPc" inputmode="numeric" placeholder="0"></label>
+      <label class="f">POB (₹)<input id="aPob" inputmode="decimal" placeholder="0"></label>
+      <label class="f">Stockist<input id="aStockist" placeholder="optional"></label>
+      <div class="f" style="align-self:end"><button class="btn dark" type="submit" style="width:100%;justify-content:center">+ Add report</button></div>
+    </form>
+    <datalist id="mrList"></datalist>
+  </section>
+
+  <section class="card">
     <h3>Run the pipeline</h3>
-    <p class="note">Reads new MR photos from Google Drive (MR_Pipeline_Input), parses them with Gemini, and writes them to your Google Sheet. A test run prints the result without writing anything.</p>
+    <p class="note" id="runNote">Reads new MR photos, parses them with Gemini, and saves the results to this app's JSON file. A test run prints the result without saving anything.</p>
     <div class="row">
       <button class="btn primary" id="runOnce">▶ Process new photos</button>
-      <button class="btn" id="runTest">Test run (no write)</button>
+      <button class="btn" id="runTest">Test run (no save)</button>
       <span class="muted" id="runState"></span>
     </div>
     <pre class="log" id="log" hidden></pre>
   </section>
 
   <div class="grid2">
-    <section class="card"><h3>MR performance</h3><p class="note">From the daily_reports tab, for the month above.</p><div class="tbl" id="mrTbl"></div></section>
-    <section class="card"><h3>Top products</h3><p class="note">From the orders tab, by quantity ordered.</p><div class="tbl" id="prodTbl"></div></section>
+    <section class="card"><h3>MR performance</h3><p class="note">Daily reports for the month above.</p><div class="tbl" id="mrTbl"></div></section>
+    <section class="card"><h3>Top products</h3><p class="note">Order lines for the month, by quantity.</p><div class="tbl" id="prodTbl"></div></section>
   </div>
   <section class="card"><h3>Daily reports</h3><p class="note">Each MR's day, newest first.</p><div class="tbl" id="dayTbl"></div></section>
-  <section class="card"><h3>Needs review</h3><p class="note">Low-confidence slips and reports in the exception_queue tab marked "Needs Review".</p><div class="tbl" id="excTbl"></div></section>
-  <section class="card"><h3>Processed batches</h3><p class="note">MR / date folders the pipeline has already handled (pipeline_state.json).</p><div class="tbl" id="batchTbl"></div></section>
+  <section class="card"><h3>Orders</h3><p class="note">One line per product ordered, from the order slips.</p><div class="tbl" id="ordTbl"></div></section>
+  <section class="card"><h3>Needs review</h3><p class="note">Slips and reports the pipeline wasn't confident about. Check them, then mark them reviewed.</p><div class="tbl" id="excTbl"></div></section>
+
+  <details class="card" id="setup">
+    <summary><h3 style="display:inline">Pipeline settings</h3> <span class="muted" id="setupState"></span></summary>
+    <p class="note">Where your MR pipeline (main.py, config.py) lives on this Mac, and the Python that has its packages installed. Only needed for "Process new photos".</p>
+    <div class="fields">
+      <label class="f">Pipeline folder<input id="folder" placeholder="/Users/riazmohd/Downloads/mr_pipeline 2"></label>
+      <label class="f">Python command<input id="python" placeholder="python3"></label>
+      <label class="f">Photos come from<select id="source"><option value="drive">Google Drive (MR_Pipeline_Input)</option><option value="local">Local inbox folder</option></select></label>
+      <label class="f">Gemini API key (optional)<input id="gkey" type="password" placeholder="leave blank if set in your shell" autocomplete="off"></label>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn dark" id="save">Save settings</button><span class="muted" id="saved"></span></div>
+    <div class="checks" id="checks"></div>
+    <h3 style="font-size:16px;margin-top:16px">Processed batches</h3>
+    <p class="note">MR / date folders the pipeline has already handled (pipeline_state.json).</p>
+    <div class="tbl" id="batchTbl"></div>
+  </details>
+
+  <p class="muted" style="text-align:center;font-size:12px" id="foot"></p>
 </div></main>
 
 <script>
@@ -126,9 +154,10 @@ const rs = n => "₹" + new Intl.NumberFormat("en-IN", { maximumFractionDigits: 
 const int = n => new Intl.NumberFormat("en-IN", { maximumFractionDigits: 1 }).format(n);
 const pad = n => String(n).padStart(2, "0");
 const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const shiftMonth = (m, k) => { const [y, mo] = m.split("-").map(Number); const d = new Date(y, mo - 1 + k, 1); return d.getFullYear() + "-" + pad(d.getMonth() + 1); };
 const monthLabel = m => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" }); };
-/* Sheet dates come from Gemini in mixed formats; Indian order (day first) is assumed for 07-05-2026 / 07/05/2026. */
+/* Gemini returns dates in mixed formats; day-first (Indian) order is assumed for 07-05-2026 / 07/05/2026. */
 function normDate(v) {
   const s = String(v ?? "").trim();
   let m;
@@ -139,11 +168,13 @@ function normDate(v) {
   const d = new Date(s);
   return isNaN(d) ? "" : ymd(d);
 }
-const col = (row, ...names) => { for (const n of names) if (row[n] !== undefined && row[n] !== "") return row[n]; return ""; };
+const TC = r => num(r["Total Calls (TC)"]), PC = r => num(r["Productive Calls (PC)"]), POB = r => num(r["POB (Rs)"]);
 
-let data = { settings: { folder: "", python: "python3", geminiKey: "" }, snapshot: null };
+const KEY = "universal-pharmacy-v1";
+const EMPTY = { settings: { folder: "", python: "python3", geminiKey: "", source: "drive" }, daily: [], orders: [], exceptions: [] };
+let data = JSON.parse(JSON.stringify(EMPTY));
 let month = ymd(new Date()).slice(0, 7);
-let serverMode = false;
+let serverMode = false, running = false;
 
 async function api(path, opts) {
   const r = await fetch(path, { cache: "no-store", ...opts });
@@ -151,49 +182,58 @@ async function api(path, opts) {
   if (!r.ok) throw Object.assign(new Error(j.error || "Request failed"), { body: j });
   return j;
 }
+function normalize(d) {
+  d = d || {};
+  // Rows read from the old Google Sheet snapshot (earlier version) carry over once.
+  if (d.snapshot && !d.daily) { d.daily = d.snapshot.daily || []; d.orders = d.snapshot.orders || []; d.exceptions = d.snapshot.exceptions || []; }
+  delete d.snapshot;
+  const withId = a => (a || []).map(r => r.id ? r : { id: uid(), ...r });
+  return { settings: { ...EMPTY.settings, ...(d.settings || {}) }, daily: withId(d.daily), orders: withId(d.orders), exceptions: withId(d.exceptions) };
+}
 
-/* ---------- settings ---------- */
-async function loadAll() {
-  try { data = { ...data, ...(await api("api/data")) }; serverMode = true; } catch (e) {}
-  const s = data.settings || {};
-  $("folder").value = s.folder || ""; $("python").value = s.python || "python3"; $("gkey").value = s.geminiKey || "";
-  await checkSetup();
+/* ---------- load & save (this app's own JSON file) ---------- */
+async function load() {
+  try { data = normalize(await api("api/data")); serverMode = true; }
+  catch (e) { try { data = normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (e2) {} }
+  const s = data.settings;
+  $("folder").value = s.folder; $("python").value = s.python; $("gkey").value = s.geminiKey; $("source").value = s.source;
+  $("foot").textContent = serverMode ? "Saved to Documents/Universal-Pharmacy/pharmacy-data.json — this app's own file." : "Running without the local server, so data is in this browser only. Use Backup to keep a copy.";
   render();
+  await checkSetup();
   if (serverMode) pollRun(true);
 }
-async function saveSettings() {
-  data.settings = { folder: $("folder").value.trim(), python: $("python").value.trim() || "python3", geminiKey: $("gkey").value.trim() };
-  try {
-    await api("api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
-    $("saved").textContent = "Saved";
-  } catch (e) { $("saved").textContent = "Could not save: " + e.message; }
-  await checkSetup();
+let saveTimer = null;
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+  if (!serverMode) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try { await api("api/data", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) }); $("msg").hidden = true; }
+    catch (e) { $("msg").hidden = false; $("msg").textContent = "Couldn't save: " + e.message; }
+  }, 300);
 }
-let status = { batches: [], log: "" };
+function change(fn) { if (running) { $("msg").hidden = false; $("msg").textContent = "The pipeline is running. Edits are paused until it finishes."; return; } fn(); save(); render(); }
+
+/* ---------- pipeline settings ---------- */
+let status = { batches: [] };
+async function saveSettings() {
+  data.settings = { folder: $("folder").value.trim(), python: $("python").value.trim() || "python3", geminiKey: $("gkey").value.trim(), source: $("source").value };
+  save();
+  $("saved").textContent = "Saved";
+  setTimeout(checkSetup, 400);
+}
 async function checkSetup() {
-  if (!serverMode) { $("checks").innerHTML = '<span class="pill warn">Open this inside the Master Dashboard app to connect the pipeline</span>'; $("setup").open = true; return; }
+  if (!serverMode) { $("checks").innerHTML = '<span class="pill warn">Open this inside the Master Dashboard app to run the pipeline</span>'; ["runOnce", "runTest"].forEach(id => $(id).disabled = true); return; }
   try { status = await api("api/status"); } catch (e) { return; }
   const p = (ok, txt) => `<span class="pill ${ok ? "ok" : "no"}">${ok ? "✓" : "✗"} ${esc(txt)}</span>`;
   $("checks").innerHTML = status.folder ? p(status.folderFound, "folder found") + p(status.hasMain, "main.py") + p(status.hasConfig, "config.py") : '<span class="pill warn">Enter your pipeline folder to connect</span>';
   const ready = status.folderFound && status.hasMain && status.hasConfig;
   $("setupState").textContent = ready ? "· connected" : "· not connected yet";
-  if (!ready) $("setup").open = true;
-  ["runOnce", "runTest", "refresh"].forEach(id => $(id).disabled = !ready);
+  if (!running) ["runOnce", "runTest"].forEach(id => $(id).disabled = !ready);
+  $("runNote").textContent = ready
+    ? "Reads new MR photos from " + (data.settings.source === "local" ? "the local inbox folder" : "Google Drive (MR_Pipeline_Input)") + ", parses them with Gemini, and saves the results to this app's JSON file. A test run prints the result without saving anything."
+    : "Connect your pipeline folder in Pipeline settings (bottom of the page) to process MR photos automatically.";
   renderBatches();
-}
-
-/* ---------- Google Sheet snapshot ---------- */
-async function refreshSheet() {
-  $("refresh").disabled = true; $("refresh").textContent = "Reading Google Sheet…"; $("sheetErr").hidden = true;
-  try {
-    const r = await api("api/sheet", { method: "POST" });
-    data.snapshot = r.snapshot;
-  } catch (e) {
-    $("sheetErr").hidden = false;
-    $("sheetErr").textContent = "Couldn't read the Google Sheet. " + (e.message || "") + "\n\nCheck the pipeline folder and Python command in Pipeline settings, and that the Python you chose has gspread installed (pip install -r requirements.txt).";
-  }
-  $("refresh").disabled = false; $("refresh").textContent = "↻ Refresh from Google Sheet";
-  render();
 }
 
 /* ---------- pipeline runs ---------- */
@@ -208,66 +248,71 @@ async function pollRun(quiet) {
   let j;
   try { j = await api("api/run"); } catch (e) { return; }
   if (!j.startedAt) return;
+  running = j.running;
   if (!quiet || j.running) { $("log").hidden = false; $("log").textContent = j.output; $("log").scrollTop = $("log").scrollHeight; }
   $("runOnce").disabled = $("runTest").disabled = j.running;
   if (j.running) { $("runState").textContent = (j.mode === "test" ? "Test run" : "Processing") + " in progress…"; pollTimer = setTimeout(() => pollRun(), 1000); return; }
-  $("runState").textContent = j.exitCode === 0 ? "Finished " + (j.mode === "test" ? "(test, nothing written)" : "") : "Stopped with an error (exit " + j.exitCode + ")";
-  if (!quiet) { await checkSetup(); if (j.exitCode === 0 && j.mode !== "test") refreshSheet(); }
+  $("runState").textContent = j.exitCode === 0 ? "Finished" + (j.mode === "test" ? " (test, nothing saved)" : "") : "Stopped with an error (exit " + j.exitCode + ")";
+  if (!quiet) {
+    // Pick up what the pipeline just saved.
+    try { data = normalize(await api("api/data")); } catch (e) {}
+    $("msg").hidden = true;
+    render(); checkSetup();
+  }
 }
 
-/* ---------- report ---------- */
+/* ---------- tables ---------- */
 function table(head, rows, empty) {
   if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
   return `<table><thead><tr>${head.map(h => `<th class="${h[1] || ""}">${esc(h[0])}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${head[i][1] || ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
 }
+const del = (table, id) => `<button class="x" title="Delete" data-del="${table}" data-id="${esc(id)}">✕</button>`;
+
 function render() {
   $("monthLbl").textContent = monthLabel(month);
-  const snap = data.snapshot;
-  $("sub").textContent = snap ? "Google Sheet read " + new Date(snap.fetchedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "MR field reports · not read from Google Sheet yet";
-  if (snap && snap.sheetId) { $("sheetLink").hidden = false; $("sheetLink").href = "https://docs.google.com/spreadsheets/d/" + snap.sheetId + "/edit"; }
-  const daily = (snap?.daily || []).map(r => ({ ...r, _d: normDate(r["Date"]) }));
-  const orders = (snap?.orders || []).map(r => ({ ...r, _d: normDate(r["Date"]) }));
-  const exc = (snap?.exceptions || []).filter(r => String(r["Status"] || "").toLowerCase().includes("review"));
-  const dM = daily.filter(r => r._d.slice(0, 7) === month), oM = orders.filter(r => r._d.slice(0, 7) === month);
+  const daily = data.daily.map(r => ({ r, d: normDate(r["Date"]) }));
+  const orders = data.orders.map(r => ({ r, d: normDate(r["Date"]) }));
+  const open = data.exceptions.filter(r => String(r["Status"] || "").toLowerCase().includes("review") && !String(r["Status"]).toLowerCase().startsWith("reviewed"));
+  const dM = daily.filter(x => x.d.slice(0, 7) === month), oM = orders.filter(x => x.d.slice(0, 7) === month);
+  $("sub").textContent = "MR field reports · " + data.daily.length + " daily reports, " + data.orders.length + " order lines";
+  $("mrList").innerHTML = [...new Set(data.daily.map(r => r["MR Name"]).filter(Boolean))].map(n => `<option value="${esc(n)}">`).join("");
 
-  const tc = dM.reduce((s, r) => s + num(col(r, "Total Calls (TC)", "TC")), 0);
-  const pc = dM.reduce((s, r) => s + num(col(r, "Productive Calls (PC)", "PC")), 0);
-  const pob = dM.reduce((s, r) => s + num(col(r, "POB (Rs)", "POB")), 0);
-  const customers = new Set(oM.map(r => (r["Customer Name"] || "") + "|" + r._d)).size;
-  const kpi = (k, v, s) => `<div class="card kpi"><div class="k">${esc(k)}</div><div class="v">${v}</div><div class="s">${esc(s)}</div></div>`;
-  $("kpis").innerHTML = !snap
-    ? kpi("POB this month", "—", "refresh from Google Sheet") + kpi("Calls", "—", "TC / PC") + kpi("Order lines", "—", "") + kpi("Needs review", "—", "")
-    : kpi("POB this month", rs(pob), dM.length + " daily report" + (dM.length === 1 ? "" : "s")) +
-      kpi("Calls (TC / PC)", int(tc) + " / " + int(pc), tc ? Math.round(pc / tc * 100) + "% productive" : "no calls logged") +
-      kpi("Order lines", int(oM.length), customers + " customer visit" + (customers === 1 ? "" : "s")) +
-      `<div class="card kpi"><div class="k">Needs review</div><div class="v" style="color:${exc.length ? "var(--warn)" : "var(--good)"}">${exc.length}</div><div class="s">${exc.length ? "open items in exception_queue" : "nothing waiting"}</div></div>`;
+  const tc = dM.reduce((s, x) => s + TC(x.r), 0), pc = dM.reduce((s, x) => s + PC(x.r), 0), pob = dM.reduce((s, x) => s + POB(x.r), 0);
+  const visits = new Set(oM.map(x => (x.r["Customer Name"] || "") + "|" + x.d)).size;
+  const kpi = (k, v, s, color) => `<div class="card kpi"><div class="k">${esc(k)}</div><div class="v"${color ? ` style="color:${color}"` : ""}>${v}</div><div class="s">${esc(s)}</div></div>`;
+  $("kpis").innerHTML =
+    kpi("POB this month", rs(pob), dM.length + " daily report" + (dM.length === 1 ? "" : "s")) +
+    kpi("Calls (TC / PC)", int(tc) + " / " + int(pc), tc ? Math.round(pc / tc * 100) + "% productive" : "no calls logged") +
+    kpi("Order lines", int(oM.length), visits + " customer visit" + (visits === 1 ? "" : "s")) +
+    kpi("Needs review", String(open.length), open.length ? "waiting to be checked" : "nothing waiting", open.length ? "var(--warn)" : "var(--good)");
 
-  const noData = snap ? "Nothing for " + monthLabel(month) + "." : "Refresh from Google Sheet to load reports.";
+  const none = "Nothing for " + monthLabel(month) + ".";
   const byMr = {};
-  dM.forEach(r => {
-    const k = r["MR Name"] || "—";
-    const o = byMr[k] = byMr[k] || { days: 0, tc: 0, pc: 0, pob: 0 };
-    o.days++; o.tc += num(col(r, "Total Calls (TC)", "TC")); o.pc += num(col(r, "Productive Calls (PC)", "PC")); o.pob += num(col(r, "POB (Rs)", "POB"));
+  dM.forEach(({ r }) => {
+    const o = byMr[r["MR Name"] || "—"] = byMr[r["MR Name"] || "—"] || { days: 0, tc: 0, pc: 0, pob: 0 };
+    o.days++; o.tc += TC(r); o.pc += PC(r); o.pob += POB(r);
   });
   $("mrTbl").innerHTML = table([["MR"], ["Days", "n"], ["TC", "n"], ["PC", "n"], ["PC %", "n"], ["POB", "n"]],
-    Object.entries(byMr).sort((a, b) => b[1].pob - a[1].pob).map(([k, o]) => [esc(k), o.days, int(o.tc), int(o.pc), o.tc ? Math.round(o.pc / o.tc * 100) + "%" : "—", rs(o.pob)]), noData);
+    Object.entries(byMr).sort((a, b) => b[1].pob - a[1].pob).map(([k, o]) => [esc(k), o.days, int(o.tc), int(o.pc), o.tc ? Math.round(o.pc / o.tc * 100) + "%" : "—", rs(o.pob)]), none);
 
   const byProd = {};
-  oM.forEach(r => {
-    const k = r["Product (Normalized)"] || r["Product (Raw)"] || "—";
-    const o = byProd[k] = byProd[k] || { qty: 0, lines: 0 };
+  oM.forEach(({ r }) => {
+    const o = byProd[r["Product (Normalized)"] || r["Product (Raw)"] || "—"] = byProd[r["Product (Normalized)"] || r["Product (Raw)"] || "—"] || { qty: 0, lines: 0 };
     o.qty += num(r["Quantity"]); o.lines++;
   });
   $("prodTbl").innerHTML = table([["Product"], ["Qty", "n"], ["Lines", "n"]],
-    Object.entries(byProd).sort((a, b) => b[1].qty - a[1].qty).slice(0, 15).map(([k, o]) => [esc(k), int(o.qty), o.lines]), noData);
+    Object.entries(byProd).sort((a, b) => b[1].qty - a[1].qty).slice(0, 15).map(([k, o]) => [esc(k), int(o.qty), o.lines]), none);
 
-  $("dayTbl").innerHTML = table([["Date"], ["MR"], ["Area"], ["TC", "n"], ["PC", "n"], ["POB", "n"], ["Stockist"]],
-    dM.sort((a, b) => a._d < b._d ? 1 : -1).map(r => [esc(r._d || r["Date"]), esc(r["MR Name"]), esc(r["Working Area"]), int(num(col(r, "Total Calls (TC)", "TC"))), int(num(col(r, "Productive Calls (PC)", "PC"))), rs(num(col(r, "POB (Rs)", "POB"))), esc(r["Stockist"])]), noData);
+  $("dayTbl").innerHTML = table([["Date"], ["MR"], ["Area"], ["TC", "n"], ["PC", "n"], ["POB", "n"], ["Stockist"], ["From"], [""]],
+    dM.sort((a, b) => a.d < b.d ? 1 : -1).map(({ r, d }) => [esc(d || r["Date"]), esc(r["MR Name"]), esc(r["Working Area"]), int(TC(r)), int(PC(r)), rs(POB(r)), esc(r["Stockist"]), r["Source File"] === "manual" ? '<span class="muted">by hand</span>' : '<span class="muted">pipeline</span>', del("daily", r.id)]), none);
 
-  $("excTbl").innerHTML = table([["When"], ["Type"], ["MR"], ["File"], ["Issue"]],
-    exc.slice().reverse().slice(0, 50).map(r => [esc(r["Timestamp"]), esc(r["Type"]), esc(r["MR Name"]), esc(r["Source File"]), esc(r["Error/Issue"])]),
-    snap ? "Nothing needs review." : "Refresh from Google Sheet to load the queue.");
-  renderBatches();
+  $("ordTbl").innerHTML = table([["Date"], ["MR"], ["Customer"], ["Product"], ["Qty", "n"], ["Unit"], [""]],
+    oM.sort((a, b) => a.d < b.d ? 1 : -1).map(({ r, d }) => [esc(d || r["Date"]), esc(r["MR Name"]), esc(r["Customer Name"]), esc(r["Product (Normalized)"] || r["Product (Raw)"]), int(num(r["Quantity"])), esc(r["Unit"]), del("orders", r.id)]), none);
+
+  $("excTbl").innerHTML = table([["When"], ["Type"], ["MR"], ["File"], ["Issue"], [""]],
+    open.slice().reverse().map(r => [esc(r["Timestamp"]), esc(r["Type"]), esc(r["MR Name"]), esc(r["Source File"]), esc(r["Error/Issue"]),
+      `<button class="btn" style="padding:4px 10px;font-size:12px" data-reviewed="${esc(r.id)}">Mark reviewed</button> ${del("exceptions", r.id)}`]),
+    "Nothing needs review.");
 }
 function renderBatches() {
   const b = (status.batches || []).slice().sort((x, y) => String(y.processed_at || "").localeCompare(String(x.processed_at || "")));
@@ -276,13 +321,47 @@ function renderBatches() {
     status.folder ? "No batches processed yet." : "Connect the pipeline folder to see processed batches.");
 }
 
+/* ---------- events ---------- */
 $("prev").onclick = () => { month = shiftMonth(month, -1); render(); };
 $("next").onclick = () => { month = shiftMonth(month, 1); render(); };
 $("save").onclick = saveSettings;
-$("refresh").onclick = refreshSheet;
 $("runOnce").onclick = () => startRun("once");
 $("runTest").onclick = () => startRun("test");
-loadAll();
+$("aDate").value = ymd(new Date());
+$("addForm").onsubmit = e => {
+  e.preventDefault();
+  change(() => data.daily.push({
+    id: uid(), "Date": $("aDate").value, "MR Name": $("aMr").value.trim(), "HQ": "", "Working Area": $("aArea").value.trim(), "Working With": "self",
+    "Total Calls (TC)": num($("aTc").value), "Productive Calls (PC)": num($("aPc").value), "POB (Rs)": num($("aPob").value),
+    "Stockist": $("aStockist").value.trim(), "Slip Count": 0, "Remarks": "", "Confidence": 1,
+    "Source File": "manual", "Timestamp": new Date().toISOString().slice(0, 19).replace("T", " "), "Status": "Manual"
+  }));
+  if ($("aDate").value.slice(0, 7) !== month) { month = $("aDate").value.slice(0, 7); render(); }
+  ["aArea", "aTc", "aPc", "aPob", "aStockist"].forEach(id => $(id).value = "");
+};
+document.addEventListener("click", e => {
+  const d = e.target.closest("[data-del]");
+  if (d) return change(() => { data[d.dataset.del] = data[d.dataset.del].filter(r => r.id !== d.dataset.id); });
+  const rv = e.target.closest("[data-reviewed]");
+  if (rv) return change(() => { const r = data.exceptions.find(x => x.id === rv.dataset.reviewed); if (r) r["Status"] = "Reviewed"; });
+});
+$("backup").onclick = () => {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  a.download = "universal-pharmacy-backup-" + ymd(new Date()) + ".json";
+  a.click(); URL.revokeObjectURL(a.href);
+};
+$("restoreFile").onchange = e => {
+  const f = e.target.files[0]; e.target.value = "";
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try { const d = JSON.parse(r.result); if (!Array.isArray(d.daily) && !d.snapshot) throw new Error(); change(() => { data = normalize(d); }); alert("Backup restored."); }
+    catch (err) { alert("That file isn't a Universal Pharmacy backup."); }
+  };
+  r.readAsText(f);
+};
+load();
 </script>
 </body>
 </html>
