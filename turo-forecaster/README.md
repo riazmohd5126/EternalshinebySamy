@@ -4,7 +4,33 @@ Before you buy a car to rent on Turo, this shows what you could earn and how lon
 It's built the same way as the EternalShine dashboard: one HTML page plus a tiny local server
 that saves your cars to a plain JSON file on your computer.
 
-## Run it on your laptop
+## Install it on your Mac (separate from EternalShine)
+
+This is its own app: its own name, window, Dock icon and data file. It won't touch EternalShine.
+
+1. Open **Terminal** (press Cmd+Space, type "Terminal", press Return).
+2. Download it into your home folder. If your Mac asks to install "command line developer tools", click Install, then run this again:
+
+       cd ~
+       git clone -b claude/trusting-rubin-phk9vr https://github.com/riazmohd5126/eternalshinebysamy.git turo-download
+       cp -R ~/turo-download/turo-forecaster ~/turo-forecaster
+       rm -rf ~/turo-download
+
+   The app's files are now in **/Users/YOUR-NAME/turo-forecaster**. To see the folder in Finder, run `open ~/turo-forecaster`
+   (or in Finder, press Shift+Cmd+H to go to your home folder).
+3. Build the app:
+
+       cd ~/turo-forecaster
+       npm install
+       npm run dist
+
+4. Run `open ~/turo-forecaster/dist`. Drag **Turo Car Forecaster.app** (inside `mac-arm64` on Apple Silicon, or `mac` on Intel)
+   into **Applications**. The first time, right-click it and choose Open, then Open again.
+5. To keep it in the Dock, right-click its Dock icon and choose Options, then Keep in Dock.
+
+Your cars are saved in **Documents/Turo-Forecaster/turo-data.json**.
+
+## Run it without building (quick)
 
 You need Node.js (LTS, from nodejs.org). Then:
 

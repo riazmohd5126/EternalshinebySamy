@@ -15,9 +15,10 @@
   "build": {
     "appId": "com.eternalshinebysamy.turoforecaster",
     "productName": "Turo Car Forecaster",
-    "files": ["main.js", "server.js", "turo-forecaster.html"],
+    "files": ["main.js", "server.js", "turo-forecaster.html", "icon.png"],
     "mac": {
       "target": ["dir"],
+      "icon": "icon.png",
       "category": "public.app-category.finance"
     }
   }

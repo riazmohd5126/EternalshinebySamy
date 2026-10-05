@@ -2,7 +2,7 @@
 // Opens the forecaster in its own window. Data is stored in a plain JSON file
 // at ~/Documents/Turo-Forecaster/turo-data.json so you can see and back it up.
 
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, nativeImage } = require("electron");
 const path = require("path");
 const { startServer } = require("./server");
 
@@ -11,13 +11,17 @@ let serverPort = 0;
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280, height: 860, minWidth: 900, minHeight: 640,
-    title: "Turo Car Forecaster", backgroundColor: "#F6F7F5",
+    title: "Turo Car Forecaster", icon: path.join(__dirname, "icon.png"), backgroundColor: "#F6F7F5",
     webPreferences: { contextIsolation: true },
   });
   win.loadURL("http://127.0.0.1:" + serverPort);
 }
 
 app.whenReady().then(() => {
+  try {
+    const img = nativeImage.createFromPath(path.join(__dirname, "icon.png"));
+    if (process.platform === "darwin" && app.dock && !img.isEmpty()) app.dock.setIcon(img);
+  } catch (e) {}
   startServer({ port: 0, dataDir: path.join(app.getPath("documents"), "Turo-Forecaster") }, (port) => {
     serverPort = port;
     createWindow();
