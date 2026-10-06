@@ -98,7 +98,7 @@ const APPS = [
     icon: '<path d="M6 3h12l4 6-10 13L2 9Z"/><path d="M2 9h20"/>', storageKey: "samy-sparkle-dashboard-v1" },
   { id: "expenses", name: "Monthly Expenses", blurb: "Household bills & transfers to India", color: "#3F6E8C", ready: true,
     icon: '<path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>', storageKey: "monthly-expenses-v1" },
-  { id: "pharmacy", name: "Universal Pharmacy", blurb: "MR field reports & orders", color: "#2E8B6E", ready: true,
+  { id: "pharmacy", name: "Universal Healthcare Pharma", blurb: "Monthly recovery & profit", color: "#2E8B6E", ready: true, storageKey: "uhp-monthly-dashboard-v1",
     icon: '<path d="M10.5 20.5 3.5 13.5a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7Z"/><path d="m8.5 8.5 7 7"/>' },
   { id: "turo", name: "Turo Car Forecaster", blurb: "Earnings & payback for rental cars", color: "#6A4FC9", ready: true, storageKey: "turo-forecaster-v1",
     icon: '<path d="M5 17h14l-1.5-6.5A2 2 0 0 0 15.6 9H8.4a2 2 0 0 0-1.9 1.5Z"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/>' }
@@ -140,21 +140,22 @@ function sumEternal(d) {
   });
   return { rev, net: rev - fees - cost, stock: qty - sold, monthRev, monthNet, events: ev.length };
 }
-/* Universal Pharmacy: daily reports, orders and the review queue in its own JSON file. */
-function pharmDate(v) {
-  const s = String(v ?? "").trim(); let m;
-  if ((m = s.match(/^(\d{4})-(\d{1,2})/))) return m[1] + "-" + pad(m[2]);
-  if ((m = s.match(/^(\d{4})(\d{2})\d{2}$/))) return m[1] + "-" + m[2];
-  if ((m = s.match(/^\d{1,2}[-/.](\d{1,2})[-/.](\d{4})/))) return m[2] + "-" + pad(m[1]);
-  return "";
-}
+/* Universal Healthcare Pharma: same maths as the app's calc().
+   Retained = recovery × retention %; net profit = retained − that month's expenditure. */
 function sumPharmacy(d) {
-  const all = d?.daily || [];
-  const daily = all.filter(r => pharmDate(r["Date"]) === THIS_MONTH);
-  const tc = daily.reduce((s, r) => s + num(r["Total Calls (TC)"]), 0), pc = daily.reduce((s, r) => s + num(r["Productive Calls (PC)"]), 0);
-  const review = (d?.exceptions || []).filter(r => { const st = String(r["Status"] || "").toLowerCase(); return st.includes("review") && !st.startsWith("reviewed"); }).length;
-  return { any: all.length > 0, pob: daily.reduce((s, r) => s + num(r["POB (Rs)"]), 0), tc, pc, reports: daily.length, review };
+  const months = d?.months || [], exps = d?.expenditures || [];
+  if (!months.length) return { any: false };
+  const sorted = months.slice().sort((a, b) => a.month < b.month ? 1 : -1);
+  const m = months.find(x => x.month === THIS_MONTH) || sorted[0];
+  const inMonth = exps.filter(x => (x.date || "").slice(0, 7) === m.month);
+  // Older entries kept rent/salary/transport on the month itself; the app counts those unless that category is already logged.
+  const legacy = [["Rent", m.rent], ["Salary", m.salary], ["Transportation", m.transportation ?? m.fixed]]
+    .filter(([cat]) => !inMonth.some(x => x.category === cat)).reduce((s, [, v]) => s + num(v), 0);
+  const expense = inMonth.reduce((s, x) => s + num(x.amount), 0) + legacy;
+  const rec = num(m.recovery), retained = rec * num(m.retentionPct ?? d.retentionPct) / 100;
+  return { any: true, month: m.month, rec, retained, owner: rec - retained, expense, net: retained - expense };
 }
+const monthName = ym => { const [y, mo] = ym.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleString("en-US", { month: "long" }); };
 /* Turo: same forecast() the Turo page uses (apps/turo/model.js). */
 function sumTuro(d) {
   const cars = d?.cars || [];
@@ -200,7 +201,7 @@ async function renderHome() {
       ${stat(APPS[0].color, "EternalShine profit · " + MONTH_NAME, fmt(E.monthNet, 2), fmt(E.monthRev) + " in sales this month", E.monthNet >= 0 ? "pos" : "neg")}
       ${stat(APPS[1].color, "Household spent · " + MONTH_NAME, fmt(X.spent, 2), "rent, bills, groceries and more")}
       ${stat("var(--india)", "Sent to India · " + MONTH_NAME, fmt(X.india, 2), fmt(X.indiaYear) + " so far in " + now.getFullYear(), "ind")}
-      ${stat(APPS[2].color, "Pharmacy POB · " + MONTH_NAME, P.any ? inr(P.pob) : "—", P.any ? P.reports + " MR daily reports" : "no reports yet")}
+      ${P.any ? stat(APPS[2].color, "Pharma net profit · " + monthName(P.month), inr(P.net), inr(P.rec) + " recovered", P.net >= 0 ? "pos" : "neg") : stat(APPS[2].color, "Pharma net profit", "—", "no months logged yet")}
       ${T.cars ? stat(APPS[3].color, "Turo take-home / month", usd(T.active.f.yr1.net), (T.active.c.name || "Untitled car") + " · year one", T.active.f.yr1.net >= 0 ? "pos" : "neg") : stat(APPS[3].color, "Turo take-home / month", "—", "add a car in Turo")}
     </div>
     <h2>Your apps</h2>
@@ -208,8 +209,9 @@ async function renderHome() {
       ${card(APPS[0], num3([["Total revenue", fmt(E.rev)], ["Net profit", fmt(E.net), E.net >= 0 ? "pos" : "neg"], ["Rings in stock", fmt(E.stock)]]), E.events ? E.events + " selling events logged" : "")}
       ${card(APPS[1], num3([["Spent in " + MONTH_NAME.slice(0, 3), fmt(X.spent)], ["Sent to India", fmt(X.india), "ind"], ["Total out", fmt(X.total)]]))}
       ${card(APPS[2], P.any
-        ? num3([["POB in " + MONTH_NAME.slice(0, 3), inr(P.pob)], ["Productive calls", P.tc ? Math.round(P.pc / P.tc * 100) + "%" : "—"], ["Needs review", fmt(P.review), P.review ? "neg" : ""]])
-        : `<p class="note">No reports yet. Open it to add a daily report, or connect the MR pipeline to process photos.</p>`)}
+        ? num3([["Recovery", inr(P.rec)], ["Our share", inr(P.retained)], ["Net profit", inr(P.net), P.net >= 0 ? "pos" : "neg"]])
+        : `<p class="note">No months logged yet. Open it to add this month's recovery.</p>`,
+        P.any ? monthName(P.month) + (P.month === THIS_MONTH ? " (this month)" : " (latest month)") + " · expenditure " + inr(P.expense) : "")}
       ${card(APPS[3], T.cars
         ? num3([["Take-home / mo", usd(T.active.f.yr1.net), T.active.f.yr1.net >= 0 ? "pos" : "neg"], ["Pays for itself", payText(T.active.f.fullPayback)], ["Cars compared", fmt(T.cars)]])
         : `<p class="note">Add the cars you're considering to see earnings and payback.</p>`,

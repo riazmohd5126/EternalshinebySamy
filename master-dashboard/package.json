@@ -1,7 +1,7 @@
 {
   "name": "master-dashboard",
   "version": "1.0.0",
-  "description": "Master Dashboard — EternalShine, Monthly Expenses, Universal Pharmacy and Turo in one app",
+  "description": "Master Dashboard — EternalShine, Monthly Expenses, Universal Healthcare Pharma and Turo in one app",
   "main": "main.js",
   "author": "Riaz",
   "scripts": {

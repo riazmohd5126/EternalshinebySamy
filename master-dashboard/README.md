@@ -8,7 +8,7 @@ numbers from every app, and a sidebar to open each one.
 | EternalShine by Samy | `~/Documents/EternalShine-by-Samy/samy-data.json` |
 | Monthly Expenses | `~/Documents/Monthly-Expenses/expenses-data.json` |
 | Turo Car Forecaster | `~/Documents/Turo-Forecaster/turo-data.json` |
-| Universal Pharmacy | `~/Documents/Universal-Pharmacy/pharmacy-data.json` |
+| Universal Healthcare Pharma | `~/Documents/Universal-Healthcare-Pharma/data.json` |
 
 **Databases stay separate.** Each app reads and writes only its own file, in its
 own folder. The Home screen only *reads* them to show the summary. These are the
@@ -28,20 +28,13 @@ Needs Node.js (nodejs.org, LTS).
 Then drag `dist/mac-arm64/Master Dashboard.app` (or `dist/mac/…` on Intel) to
 Applications. First launch: right-click → Open → Open.
 
-## Universal Pharmacy (MR pipeline)
-Everything is stored in its own JSON file: daily reports, order lines and the
-needs-review queue. Google Sheets is not used.
-- **Add a daily report** by hand (date, MR, area, TC, PC, POB, stockist).
-- **Process new photos** runs the MR pipeline (the `Indian_Pharma` folder:
-  main.py, config.py). The dashboard runs it through `apps/pharmacy/run_pipeline.py`,
-  which swaps the pipeline's Google Sheets writer for one that saves to the JSON
-  file. The pipeline folder itself is not changed. **Test run** = `main.py --test`.
-- **Pipeline settings** (bottom of the page): the folder, the Python command that
-  has its packages installed (e.g. `/opt/homebrew/bin/python3`), where photos come
-  from (Google Drive or the local inbox folder) and optionally the Gemini API key
-  (apps opened from Finder don't see your shell's environment variables).
-- Deleting rows, marking review items done, Backup and Restore all work on the
-  same JSON file.
+## Universal Healthcare Pharma
+The app from `riazmohd5126/pharma-dashboard` (monthly recovery, the medicine
+owner's share, expenses, transfers and forecast). It uses the same data file as
+its standalone app, `~/Documents/Universal-Healthcare-Pharma/data.json`, so your
+existing months, expenses and transfers appear as they are. Home shows this
+month's recovery, your share and net profit (or the latest month if this month
+isn't logged yet), calculated the same way as the app.
 
 ## Folder layout
     master-dashboard/
@@ -52,7 +45,7 @@ needs-review queue. Google Sheets is not used.
         eternalshine/index.html
         expenses/index.html
         turo/index.html, model.js     (model.js = the forecast maths, shared with Home)
-        pharmacy/index.html, run_pipeline.py
+        pharmacy/index.html           (Universal Healthcare Pharma)
 
 ## Adding another app
 1. Put its page at `apps/<id>/index.html`. It loads and saves its data with

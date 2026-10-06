@@ -5,7 +5,6 @@
 
 const { app, BrowserWindow, nativeImage, shell } = require("electron");
 const http = require("http");
-const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -40,13 +39,11 @@ const MODULES = [
     legacy: []
   },
   {
-    // Daily reports, orders and the review queue all live in this one JSON file.
-    // The Python pipeline writes here too (see apps/pharmacy/run_pipeline.py).
     id: "pharmacy",
-    name: "Universal Pharmacy",
-    dir: "Universal-Pharmacy",
-    file: "pharmacy-data.json",
-    defaults: { settings: { folder: "", python: "python3", geminiKey: "", source: "drive" }, daily: [], orders: [], exceptions: [] },
+    name: "Universal Healthcare Pharma",
+    dir: "Universal-Healthcare-Pharma",
+    file: "data.json",
+    defaults: { months: [], retentionPct: "10", rent: "", staff: [] },
     legacy: []
   }
 ];
@@ -89,7 +86,8 @@ function readData(m, res) {
 
 function writeData(m, req, res) {
   let body = "";
-  req.on("data", (c) => { body += c; if (body.length > 20e6) req.destroy(); });
+  // 80 MB leaves room for files attached in Universal Healthcare Pharma.
+  req.on("data", (c) => { body += c; if (body.length > 80e6) req.destroy(); });
   req.on("end", () => {
     let parsed;
     try { parsed = JSON.parse(body); } catch (e) { return send(res, 400, JSON.stringify({ ok: false })); }
@@ -99,55 +97,6 @@ function writeData(m, req, res) {
       fs.rename(tmp, f, (err2) => send(res, err2 ? 500 : 200, JSON.stringify({ ok: !err2 })));
     });
   });
-}
-
-/* ---------- Universal Pharmacy: runs the Python MR pipeline that lives in its own folder ---------- */
-function pharmacySettings() {
-  try { return JSON.parse(fs.readFileSync(dataFile(byId.pharmacy), "utf8")).settings || {}; } catch (e) { return {}; }
-}
-function pythonEnv(s) {
-  // Apps opened from Finder get a bare PATH, so add the usual Homebrew / python.org locations.
-  const env = { ...process.env, PYTHONUNBUFFERED: "1" };
-  env.PATH = ["/opt/homebrew/bin", "/usr/local/bin", "/Library/Frameworks/Python.framework/Versions/Current/bin", env.PATH || ""].join(":");
-  if (s.geminiKey) env.GEMINI_API_KEY = s.geminiKey;
-  env.PHARMACY_DATA_FILE = dataFile(byId.pharmacy);
-  return env;
-}
-function pharmacyCheck() {
-  const s = pharmacySettings(), folder = s.folder || "";
-  const has = f => !!folder && fs.existsSync(path.join(folder, f));
-  let batches = [], log = "";
-  try {
-    const st = JSON.parse(fs.readFileSync(path.join(folder, "pipeline_state.json"), "utf8"));
-    batches = Object.entries(st).map(([key, v]) => ({ key, ...v }));
-  } catch (e) {}
-  try { log = fs.readFileSync(path.join(folder, "pipeline.log"), "utf8").split("\n").slice(-60).join("\n"); } catch (e) {}
-  return { folder, folderFound: !!folder && fs.existsSync(folder), hasMain: has("main.py"), hasConfig: has("config.py"), batches, log };
-}
-const job = { running: false, mode: "", output: "", exitCode: null, startedAt: null };
-function runPipeline(mode) {
-  if (job.running) return false;
-  const s = pharmacySettings();
-  const flags = [].concat(mode === "test" ? ["--test"] : [], s.source === "local" ? ["--local"] : []);
-  let code;
-  try { code = fs.readFileSync(path.join(__dirname, "apps", "pharmacy", "run_pipeline.py"), "utf8"); }
-  catch (e) { job.output = "run_pipeline.py is missing from the app\n"; job.exitCode = -1; return true; }
-  Object.assign(job, { running: true, mode, output: "$ " + (s.python || "python3") + " main.py " + flags.join(" ") + "   (results saved to JSON)\n", exitCode: null, startedAt: new Date().toISOString() });
-  let child;
-  // Passed with -c so it also works when the app is packaged (files inside app.asar can't be run directly).
-  try { child = spawn(s.python || "python3", ["-c", code].concat(flags), { cwd: s.folder, env: pythonEnv(s) }); }
-  catch (e) { job.output += String(e) + "\n"; job.running = false; job.exitCode = -1; return true; }
-  const add = d => { job.output = (job.output + d).slice(-200000); };
-  child.stdout.on("data", add);
-  child.stderr.on("data", add);
-  child.on("error", e => { add("\nCould not start Python: " + e.message + "\n"); });
-  child.on("close", code => { job.running = false; job.exitCode = code; });
-  return true;
-}
-function readBody(req, cb) {
-  let body = "";
-  req.on("data", c => { body += c; if (body.length > 1e6) req.destroy(); });
-  req.on("end", () => { try { cb(JSON.parse(body || "{}")); } catch (e) { cb({}); } });
 }
 
 function startServer(cb) {
@@ -162,24 +111,8 @@ function startServer(cb) {
     if (mm && byId[mm[1]]) {
       const m = byId[mm[1]], rest = mm[2] || "";
       if (rest === "") { res.writeHead(302, { Location: "/apps/" + m.id + "/" }); return res.end(); }
-      if (m.id === "pharmacy" && rest.startsWith("/api/") && rest !== "/api/data") {
-        if (rest === "/api/status" && req.method === "GET") return send(res, 200, JSON.stringify(pharmacyCheck()));
-        if (rest === "/api/run" && req.method === "GET") return send(res, 200, JSON.stringify(job));
-        if (rest === "/api/run" && req.method === "POST") {
-          return readBody(req, b => {
-            const c = pharmacyCheck();
-            if (!c.hasMain) return send(res, 400, JSON.stringify({ ok: false, error: "main.py not found in the pipeline folder" }));
-            send(res, 200, JSON.stringify({ ok: runPipeline(b.mode === "test" ? "test" : "once"), job }));
-          });
-        }
-        return send(res, 404, "Not found", "text/plain");
-      }
       if (rest === "/api/data" && req.method === "GET") return readData(m, res);
-      if (rest === "/api/data" && req.method === "POST") {
-        // While the pipeline is writing to the pharmacy file, don't let the page overwrite it.
-        if (m.id === "pharmacy" && job.running) return send(res, 409, JSON.stringify({ ok: false, error: "The pipeline is running; try again when it finishes." }));
-        return writeData(m, req, res);
-      }
+      if (rest === "/api/data" && req.method === "POST") return writeData(m, req, res);
       if (req.method === "GET") {
         const rel = rest === "/" ? "index.html" : rest.slice(1);
         const base = path.join(__dirname, "apps", m.id);
