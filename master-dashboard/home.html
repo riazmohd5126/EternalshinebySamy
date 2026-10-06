@@ -65,6 +65,21 @@
   .open { border: 0; border-radius: 99px; padding: 8px 14px; font: inherit; font-size: 13px; color: #fff; cursor: pointer; flex: none; }
   .open:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .note { font-size: 13px; color: var(--sub); line-height: 1.5; }
+  /* Hidden numbers: shown as dots until revealed. */
+  .masked { cursor: pointer; }
+  .masked .v, .masked .n { color: var(--sub) !important; letter-spacing: 2px; }
+  .masked .s, .masked header span { color: var(--sub); }
+  .stat.masked:hover, .app.masked:hover { border-color: #C9CFCB; }
+  .peek { margin-left: auto; flex: none; border: 1px solid var(--line); background: transparent; color: var(--sub); border-radius: 99px; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+  .peek:hover { color: var(--ink); border-color: #C9CFCB; }
+  .peek:focus-visible, .switch:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .hello .right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 99px; padding: 6px 12px 6px 6px; font: inherit; font-size: 13px; cursor: pointer; }
+  .switch .track { width: 34px; height: 20px; border-radius: 99px; background: #CDD3CF; position: relative; transition: background .15s; }
+  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 99px; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+  .switch[aria-checked="true"] .track { background: var(--good); }
+  .switch[aria-checked="true"] .track::after { transform: translateX(14px); }
+  @media (prefers-reduced-motion: reduce) { .switch .track, .switch .track::after { transition: none; } }
   .pos { color: var(--good); } .neg { color: var(--bad); } .ind { color: var(--india); }
 
   @media (max-width: 760px) {
@@ -182,38 +197,63 @@ function sumExpenses(d) {
   return { spent, india, indiaYear, total: spent + india, count: ex.length };
 }
 
+/* Every number on Home starts hidden each time the app opens. Click an app (or its Show button) to
+   reveal just that app, or use the Show all switch. Nothing is remembered between launches. */
+const shown = new Set();
+let H = null; // latest summaries, so showing/hiding doesn't re-read the files
+const EYE = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>';
+const EYE_OFF = '<path d="M17.9 17.9A10.4 10.4 0 0 1 12 19c-6.4 0-10-7-10-7a18.5 18.5 0 0 1 5.1-5.9"/><path d="M9.9 5.2A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a18.6 18.6 0 0 1-2.2 3.2"/><path d="m2 2 20 20"/>';
+const DOTS = "••••••";
+function toggleApp(id) { shown.has(id) ? shown.delete(id) : shown.add(id); paintHome(); }
+function toggleAll() { const all = APPS.every(a => shown.has(a.id)); APPS.forEach(a => all ? shown.delete(a.id) : shown.add(a.id)); paintHome(); }
+
 async function renderHome() {
   const [es, ex, ph, tu] = await Promise.all(APPS.map(loadData));
-  const E = sumEternal(es), X = sumExpenses(ex), P = sumPharmacy(ph), T = sumTuro(tu);
-  const hour = now.getHours();
+  H = { E: sumEternal(es), X: sumExpenses(ex), P: sumPharmacy(ph), T: sumTuro(tu) };
+  paintHome();
+}
+function paintHome() {
+  if (!H) return;
+  const { E, X, P, T } = H;
+  const hour = new Date().getHours();
   const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const stat = (color, k, v, s, cls = "") => `<div class="stat"><div class="k"><i style="background:${color}"></i>${k}</div><div class="v ${cls}">${v}</div><div class="s">${s}</div></div>`;
-  const num3 = items => `<div class="nums">${items.map(([l, n, c]) => `<div><div class="l">${l}</div><div class="n ${c || ""}">${n}</div></div>`).join("")}</div>`;
-  const card = (a, body, sub) => `<article class="app${a.ready ? "" : " off"}">
-      <header><span class="dot" style="background:${a.color}">${svg(a.icon, 19)}</span><div><b>${esc(a.name)}</b><span>${esc(sub || a.blurb)}</span></div></header>
+  const allShown = APPS.every(a => shown.has(a.id));
+  const stat = (id, color, k, v, s, cls = "") => {
+    const vis = shown.has(id);
+    return `<div class="stat${vis ? "" : " masked"}"${vis ? "" : ` data-reveal="${id}" role="button" tabindex="0" title="Click to show"`}><div class="k"><i style="background:${color}"></i>${k}</div><div class="v ${vis ? cls : ""}">${vis ? v : DOTS}</div><div class="s">${vis ? s : "Hidden · click to show"}</div></div>`;
+  };
+  const num3 = (id, items) => `<div class="nums">${items.map(([l, n, c]) => `<div><div class="l">${l}</div><div class="n ${shown.has(id) ? c || "" : ""}">${shown.has(id) ? n : DOTS}</div></div>`).join("")}</div>`;
+  const card = (a, body, sub) => {
+    const vis = shown.has(a.id);
+    return `<article class="app${vis ? "" : " masked"}"${vis ? "" : ` data-reveal="${a.id}" title="Click to show"`}>
+      <header><span class="dot" style="background:${a.color}">${svg(a.icon, 19)}</span><div style="min-width:0"><b>${esc(a.name)}</b><span>${esc(vis ? sub || a.blurb : a.blurb)}</span></div>
+        <button class="peek" data-peek="${a.id}" aria-pressed="${vis}">${svg(vis ? EYE_OFF : EYE, 13, "currentColor")}${vis ? "Hide" : "Show"}</button></header>
       ${body}
-      <footer><span class="path" title="${esc(paths[a.id] || "")}">${a.ready ? esc(paths[a.id] ? "Data: " + paths[a.id].replace(/^.*?(Documents)/, "~/$1") : "Own data, separate from the other apps") : ""}</span>
-      ${a.ready ? `<button class="open" style="background:${a.color}" data-go="${a.id}">Open</button>` : ""}</footer></article>`;
+      <footer><span class="path" title="${esc(paths[a.id] || "")}">${esc(paths[a.id] ? "Data: " + paths[a.id].replace(/^.*?(Documents)/, "~/$1") : "Own data, separate from the other apps")}</span>
+      <button class="open" style="background:${a.color}" data-go="${a.id}">Open</button></footer></article>`;
+  };
 
   document.getElementById("home").innerHTML = `
-    <div class="hello"><h1>${hello}, Riaz</h1><span class="date">${now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span></div>
+    <div class="hello"><h1>${hello}, Riaz</h1>
+      <div class="right"><button class="switch" id="showAll" role="switch" aria-checked="${allShown}"><span class="track"></span>Show all</button>
+      <span class="date">${new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</span></div></div>
     <div class="strip">
-      ${stat(APPS[0].color, "EternalShine profit · " + MONTH_NAME, fmt(E.monthNet, 2), fmt(E.monthRev) + " in sales this month", E.monthNet >= 0 ? "pos" : "neg")}
-      ${stat(APPS[1].color, "Household spent · " + MONTH_NAME, fmt(X.spent, 2), "rent, bills, groceries and more")}
-      ${stat("var(--india)", "Sent to India · " + MONTH_NAME, fmt(X.india, 2), fmt(X.indiaYear) + " so far in " + now.getFullYear(), "ind")}
-      ${P.any ? stat(APPS[2].color, "Pharma net profit · " + monthName(P.month), inr(P.net), inr(P.rec) + " recovered", P.net >= 0 ? "pos" : "neg") : stat(APPS[2].color, "Pharma net profit", "—", "no months logged yet")}
-      ${T.cars ? stat(APPS[3].color, "Turo take-home / month", usd(T.active.f.yr1.net), (T.active.c.name || "Untitled car") + " · year one", T.active.f.yr1.net >= 0 ? "pos" : "neg") : stat(APPS[3].color, "Turo take-home / month", "—", "add a car in Turo")}
+      ${stat("eternalshine", APPS[0].color, "EternalShine profit · " + MONTH_NAME, fmt(E.monthNet, 2), fmt(E.monthRev) + " in sales this month", E.monthNet >= 0 ? "pos" : "neg")}
+      ${stat("expenses", APPS[1].color, "Household spent · " + MONTH_NAME, fmt(X.spent, 2), "rent, bills, groceries and more")}
+      ${stat("expenses", "var(--india)", "Sent to India · " + MONTH_NAME, fmt(X.india, 2), fmt(X.indiaYear) + " so far in " + now.getFullYear(), "ind")}
+      ${P.any ? stat("pharmacy", APPS[2].color, "Pharma net profit · " + monthName(P.month), inr(P.net), inr(P.rec) + " recovered", P.net >= 0 ? "pos" : "neg") : stat("pharmacy", APPS[2].color, "Pharma net profit", "—", "no months logged yet")}
+      ${T.cars ? stat("turo", APPS[3].color, "Turo take-home / month", usd(T.active.f.yr1.net), (T.active.c.name || "Untitled car") + " · year one", T.active.f.yr1.net >= 0 ? "pos" : "neg") : stat("turo", APPS[3].color, "Turo take-home / month", "—", "add a car in Turo")}
     </div>
     <h2>Your apps</h2>
     <div class="grid">
-      ${card(APPS[0], num3([["Total revenue", fmt(E.rev)], ["Net profit", fmt(E.net), E.net >= 0 ? "pos" : "neg"], ["Rings in stock", fmt(E.stock)]]), E.events ? E.events + " selling events logged" : "")}
-      ${card(APPS[1], num3([["Spent in " + MONTH_NAME.slice(0, 3), fmt(X.spent)], ["Sent to India", fmt(X.india), "ind"], ["Total out", fmt(X.total)]]))}
+      ${card(APPS[0], num3("eternalshine", [["Total revenue", fmt(E.rev)], ["Net profit", fmt(E.net), E.net >= 0 ? "pos" : "neg"], ["Rings in stock", fmt(E.stock)]]), E.events ? E.events + " selling events logged" : "")}
+      ${card(APPS[1], num3("expenses", [["Spent in " + MONTH_NAME.slice(0, 3), fmt(X.spent)], ["Sent to India", fmt(X.india), "ind"], ["Total out", fmt(X.total)]]))}
       ${card(APPS[2], P.any
-        ? num3([["Recovery", inr(P.rec)], ["Our share", inr(P.retained)], ["Net profit", inr(P.net), P.net >= 0 ? "pos" : "neg"]])
+        ? num3("pharmacy", [["Recovery", inr(P.rec)], ["Our share", inr(P.retained)], ["Net profit", inr(P.net), P.net >= 0 ? "pos" : "neg"]])
         : `<p class="note">No months logged yet. Open it to add this month's recovery.</p>`,
         P.any ? monthName(P.month) + (P.month === THIS_MONTH ? " (this month)" : " (latest month)") + " · expenditure " + inr(P.expense) : "")}
       ${card(APPS[3], T.cars
-        ? num3([["Take-home / mo", usd(T.active.f.yr1.net), T.active.f.yr1.net >= 0 ? "pos" : "neg"], ["Pays for itself", payText(T.active.f.fullPayback)], ["Cars compared", fmt(T.cars)]])
+        ? num3("turo", [["Take-home / mo", usd(T.active.f.yr1.net), T.active.f.yr1.net >= 0 ? "pos" : "neg"], ["Pays for itself", payText(T.active.f.fullPayback)], ["Cars compared", fmt(T.cars)]])
         : `<p class="note">Add the cars you're considering to see earnings and payback.</p>`,
         T.cars ? (T.active.c.name || "Untitled car") + (T.cars > 1 && T.best !== T.active ? " · best: " + (T.best.c.name || "Untitled") : "") : "")}
     </div>`;
@@ -240,11 +280,20 @@ document.getElementById("navApps").innerHTML = APPS.map(a =>
   `<button class="nav" data-go="${a.id}" ${a.ready ? "" : 'aria-disabled="true" title="Not added yet"'} style="${a.ready ? "" : "opacity:.6;cursor:default"}">
      <span class="dot" style="background:${a.color}">${svg(a.icon)}</span>${esc(a.name)}${a.ready ? "" : '<span class="soon">soon</span>'}</button>`).join("");
 document.addEventListener("click", e => {
+  if (e.target.closest("#showAll")) return toggleAll();
+  const pk = e.target.closest("[data-peek]");
+  if (pk) return toggleApp(pk.dataset.peek);
+  const rv = e.target.closest("[data-reveal]");
+  if (rv && !e.target.closest("[data-go]")) { shown.add(rv.dataset.reveal); return paintHome(); }
   const b = e.target.closest("[data-go]");
   if (!b || b.getAttribute("aria-disabled") === "true") return;
   go(b.dataset.go);
 });
 
+document.addEventListener("keydown", e => {
+  const rv = e.target.closest && e.target.closest("[data-reveal]");
+  if (rv && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); shown.add(rv.dataset.reveal); paintHome(); }
+});
 loadPaths().then(() => go((location.hash || "").slice(1) || "home"));
 </script>
 </body>

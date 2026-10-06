@@ -10,6 +10,11 @@ numbers from every app, and a sidebar to open each one.
 | Turo Car Forecaster | `~/Documents/Turo-Forecaster/turo-data.json` |
 | Universal Healthcare Pharma | `~/Documents/Universal-Healthcare-Pharma/data.json` |
 
+**Numbers start hidden.** Every time the app opens, the Home screen shows dots
+instead of amounts. Click an app's card or summary tile (or its **Show** button)
+to reveal just that app, or turn on **Show all** at the top. **Hide** or turning
+Show all off hides them again. Nothing is remembered between launches.
+
 **Databases stay separate.** Each app reads and writes only its own file, in its
 own folder. The Home screen only *reads* them to show the summary. These are the
 same files the standalone apps used, so existing data appears automatically.
